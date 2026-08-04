@@ -761,3 +761,80 @@ model EvoaiSetting {
   Instance        Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId      String    @unique
 }
+
+// ===========================================
+// AUDITORIA JURÍDICA / COMPLIANCE
+// ===========================================
+
+model AuditConfig {
+  id                String        @id @default(cuid())
+  name              String?       @db.VarChar(255)
+  enabled           Boolean       @default(true) @db.Boolean
+  periodicity       String        @db.VarChar(20) // "WEEKLY", "MONTHLY", "YEARLY", "CUSTOM"
+  customStartDate   DateTime?     @db.Timestamp
+  customEndDate     DateTime?     @db.Timestamp
+  cronExpression    String        @default("0 2 * * 1") @db.VarChar(50)
+  selectedInstances Json?         @db.JsonB // ["instance_1"] ou ["ALL"]
+  excludedJids      Json?         @db.JsonB // lista negra de JIDs/numeros excluidos da auditoria
+  aiProvider        String        @db.VarChar(30) // "GEMINI", "CLAUDE"
+  aiModel           String        @db.VarChar(100)
+  apiKeyEncrypted   String?       @db.VarChar(500)
+  temperature       Float?
+  topP              Float?
+  maxTokens         Int?          @db.Integer
+  createdAt         DateTime?     @default(now()) @db.Timestamp
+  updatedAt         DateTime?     @updatedAt @db.Timestamp
+  AuditReport       AuditReport[]
+
+  @@index([enabled])
+}
+
+model ContactRoleMapping {
+  id          String    @id @default(cuid())
+  phoneNumber String    @unique @db.VarChar(50)
+  name        String?   @db.VarChar(100)
+  role        String    @db.VarChar(30) // "SOCIO", "GERENTE", "ADMINISTRATIVO", "OUTRO"
+  instanceId  String?   @db.VarChar(255)
+  createdAt   DateTime? @default(now()) @db.Timestamp
+  updatedAt   DateTime? @updatedAt @db.Timestamp
+
+  @@index([role])
+  @@index([instanceId])
+}
+
+model AuditRecipient {
+  id               String    @id @default(cuid())
+  name             String    @db.VarChar(255)
+  phoneNumber      String    @db.VarChar(50)
+  role             String?   @db.VarChar(30) // "DIRECTOR", "LEGAL", "HR"
+  triggerCondition String    @default("ALWAYS") @db.VarChar(30) // "ALWAYS", "ONLY_HIGH_CRITICAL"
+  active           Boolean   @default(true) @db.Boolean
+  createdAt        DateTime? @default(now()) @db.Timestamp
+  updatedAt        DateTime? @updatedAt @db.Timestamp
+
+  @@index([active])
+}
+
+model AuditReport {
+  id                 String       @id @default(cuid())
+  AuditConfig        AuditConfig? @relation(fields: [auditConfigId], references: [id], onDelete: SetNull)
+  auditConfigId      String?
+  executionDate      DateTime     @default(now()) @db.Timestamp
+  periodStart        DateTime     @db.Timestamp
+  periodEnd          DateTime     @db.Timestamp
+  instancesAudited   Json?        @db.JsonB
+  overallRiskLevel   String?      @db.VarChar(20) // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  riskMatrix         Json?        @db.JsonB // { LOW: 840, MEDIUM: 5, HIGH: 2, CRITICAL: 1 } - conversas por nivel de risco
+  executiveSummary   Json?        @db.JsonB
+  occurrencesDetails Json?        @db.JsonB
+  pdfStorageUrl      String?      @db.VarChar(500)
+  status             String       @default("PROCESSING") @db.VarChar(30) // "PROCESSING", "COMPLETED", "FAILED"
+  errorMessage       String?      @db.Text
+  createdAt          DateTime?    @default(now()) @db.Timestamp
+  updatedAt          DateTime?    @updatedAt @db.Timestamp
+
+  @@index([auditConfigId])
+  @@index([executionDate])
+  @@index([overallRiskLevel])
+  @@index([status])
+}

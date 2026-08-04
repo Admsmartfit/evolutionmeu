@@ -1,6 +1,9 @@
 // Integrations Schema
+export * from './auditConfig.schema';
+export * from './auditRecipient.schema';
 export * from './business.schema';
 export * from './chat.schema';
+export * from './contactRoleMapping.schema';
 export * from './group.schema';
 export * from './instance.schema';
 export * from './label.schema';

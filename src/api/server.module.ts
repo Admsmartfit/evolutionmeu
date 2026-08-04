@@ -1,11 +1,14 @@
 import { CacheEngine } from '@cache/cacheengine';
-import { Chatwoot, configService, ProviderSession } from '@config/env.config';
+import { Audit, Chatwoot, configService, ProviderSession } from '@config/env.config';
 import { eventEmitter } from '@config/event.config';
 import { Logger } from '@config/logger.config';
 
+import { AuditConfigController } from './controllers/auditConfig.controller';
+import { AuditRecipientController } from './controllers/auditRecipient.controller';
 import { BusinessController } from './controllers/business.controller';
 import { CallController } from './controllers/call.controller';
 import { ChatController } from './controllers/chat.controller';
+import { ContactRoleMappingController } from './controllers/contactRoleMapping.controller';
 import { GroupController } from './controllers/group.controller';
 import { InstanceController } from './controllers/instance.controller';
 import { LabelController } from './controllers/label.controller';
@@ -39,7 +42,14 @@ import { S3Controller } from './integrations/storage/s3/controllers/s3.controlle
 import { S3Service } from './integrations/storage/s3/services/s3.service';
 import { ProviderFiles } from './provider/sessions';
 import { PrismaRepository } from './repository/repository.service';
+import { AuditConfigService } from './services/auditConfig.service';
+import { AuditExecutionService } from './services/auditExecution.service';
+import { AuditMessageCollectorService } from './services/auditMessageCollector.service';
+import { startAuditExecutionWorker } from './services/auditQueue.service';
+import { AuditRecipientService } from './services/auditRecipient.service';
+import { AuditSchedulerService } from './services/auditScheduler.service';
 import { CacheService } from './services/cache.service';
+import { ContactRoleMappingService } from './services/contactRoleMapping.service';
 import { WAMonitoringService } from './services/monitor.service';
 import { ProxyService } from './services/proxy.service';
 import { SettingsService } from './services/settings.service';
@@ -62,6 +72,16 @@ if (configService.get<ProviderSession>('PROVIDER').ENABLED) {
 
 export const prismaRepository = new PrismaRepository(configService);
 
+const contactRoleMappingService = new ContactRoleMappingService(prismaRepository);
+export const contactRoleMappingController = new ContactRoleMappingController(contactRoleMappingService);
+
+const auditSchedulerService = new AuditSchedulerService(prismaRepository);
+const auditConfigService = new AuditConfigService(prismaRepository, auditSchedulerService);
+export const auditConfigController = new AuditConfigController(auditConfigService);
+
+const auditRecipientService = new AuditRecipientService(prismaRepository);
+export const auditRecipientController = new AuditRecipientController(auditRecipientService);
+
 export const waMonitor = new WAMonitoringService(
   eventEmitter,
   configService,
@@ -71,6 +91,27 @@ export const waMonitor = new WAMonitoringService(
   chatwootCache,
   baileysCache,
 );
+
+const auditMessageCollectorService = new AuditMessageCollectorService(prismaRepository);
+export const auditExecutionService = new AuditExecutionService(
+  prismaRepository,
+  auditConfigService,
+  auditMessageCollectorService,
+  waMonitor,
+);
+
+if (configService.get<Audit>('AUDIT').ENABLED) {
+  try {
+    startAuditExecutionWorker(auditExecutionService);
+    logger.info('Audit execution worker started');
+  } catch (error) {
+    logger.error(`Failed to start audit execution worker: ${(error as Error).message}`);
+  }
+
+  auditSchedulerService.start().catch((error) => {
+    logger.error(`Failed to start audit scheduler: ${(error as Error).message}`);
+  });
+}
 
 const s3Service = new S3Service(prismaRepository);
 export const s3Controller = new S3Controller(s3Service);

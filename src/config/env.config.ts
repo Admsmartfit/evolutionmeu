@@ -348,6 +348,16 @@ export type S3 = {
   SAVE_VIDEO?: boolean;
 };
 
+export type AuditAiProviders = {
+  GEMINI_API_KEY_GLOBAL?: string;
+  CLAUDE_API_KEY_GLOBAL?: string;
+};
+export type Audit = {
+  ENABLED: boolean;
+  ENCRYPTION_KEY?: string;
+  AI_PROVIDERS: AuditAiProviders;
+};
+
 export type CacheConf = { REDIS: CacheConfRedis; LOCAL: CacheConfLocal };
 export type Metrics = {
   ENABLED: boolean;
@@ -420,6 +430,7 @@ export interface Env {
   FLOWISE: Flowise;
   CACHE: CacheConf;
   S3?: S3;
+  AUDIT: Audit;
   AUTHENTICATION: Auth;
   METRICS: Metrics;
   TELEMETRY: Telemetry;
@@ -863,6 +874,14 @@ export class ConfigService {
         REGION: process.env?.S3_REGION,
         SKIP_POLICY: process.env?.S3_SKIP_POLICY === 'true',
         SAVE_VIDEO: process.env?.S3_SAVE_VIDEO === 'true',
+      },
+      AUDIT: {
+        ENABLED: process.env?.AUDIT_ENABLED === 'true',
+        ENCRYPTION_KEY: process.env?.AUDIT_ENCRYPTION_KEY,
+        AI_PROVIDERS: {
+          GEMINI_API_KEY_GLOBAL: process.env?.AUDIT_GEMINI_API_KEY_GLOBAL,
+          CLAUDE_API_KEY_GLOBAL: process.env?.AUDIT_CLAUDE_API_KEY_GLOBAL,
+        },
       },
       AUTHENTICATION: {
         API_KEY: {
