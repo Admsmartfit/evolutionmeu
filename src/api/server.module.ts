@@ -5,6 +5,7 @@ import { Logger } from '@config/logger.config';
 
 import { AuditConfigController } from './controllers/auditConfig.controller';
 import { AuditRecipientController } from './controllers/auditRecipient.controller';
+import { AuditReportController } from './controllers/auditReport.controller';
 import { BusinessController } from './controllers/business.controller';
 import { CallController } from './controllers/call.controller';
 import { ChatController } from './controllers/chat.controller';
@@ -47,6 +48,7 @@ import { AuditExecutionService } from './services/auditExecution.service';
 import { AuditMessageCollectorService } from './services/auditMessageCollector.service';
 import { startAuditExecutionWorker } from './services/auditQueue.service';
 import { AuditRecipientService } from './services/auditRecipient.service';
+import { AuditReportService } from './services/auditReport.service';
 import { AuditSchedulerService } from './services/auditScheduler.service';
 import { CacheService } from './services/cache.service';
 import { ContactRoleMappingService } from './services/contactRoleMapping.service';
@@ -81,6 +83,9 @@ export const auditConfigController = new AuditConfigController(auditConfigServic
 
 const auditRecipientService = new AuditRecipientService(prismaRepository);
 export const auditRecipientController = new AuditRecipientController(auditRecipientService);
+
+const auditReportService = new AuditReportService(prismaRepository);
+export const auditReportController = new AuditReportController(auditReportService);
 
 export const waMonitor = new WAMonitoringService(
   eventEmitter,

@@ -2,6 +2,7 @@ import { RequestHandler, Router } from 'express';
 
 import { AuditConfigRouter } from './auditConfig.router';
 import { AuditRecipientRouter } from './auditRecipient.router';
+import { AuditReportRouter } from './auditReport.router';
 import { ContactRoleMappingRouter } from './contactRoleMapping.router';
 
 export class AuditRouter {
@@ -12,5 +13,6 @@ export class AuditRouter {
     this.router.use('/contacts', new ContactRoleMappingRouter(...guards).router);
     this.router.use('/config', new AuditConfigRouter(...guards).router);
     this.router.use('/recipients', new AuditRecipientRouter(...guards).router);
+    this.router.use('/reports', new AuditReportRouter(...guards).router);
   }
 }

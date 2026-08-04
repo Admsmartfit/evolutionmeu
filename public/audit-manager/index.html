@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auditoria &amp; Compliance — Evolution API</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-title">
+      <h1>Auditoria &amp; Compliance</h1>
+      <span class="topbar-subtitle">Evolution API</span>
+    </div>
+    <div class="apikey-box">
+      <input id="apikey-input" type="password" placeholder="apikey" autocomplete="off" />
+      <button id="apikey-save" class="btn btn-secondary">Salvar</button>
+      <span id="connection-status" class="status-dot" title="Status da conexão"></span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="contacts">Contatos</button>
+    <button class="tab-btn" data-tab="configs">Configurações</button>
+    <button class="tab-btn" data-tab="recipients">Destinatários</button>
+    <button class="tab-btn" data-tab="reports">Relatórios</button>
+  </nav>
+
+  <main id="toast" class="toast hidden"></main>
+
+  <!-- ===================== CONTATOS ===================== -->
+  <section id="tab-contacts" class="tab-panel active">
+    <div class="panel-grid">
+      <div class="card">
+        <h2 id="contacts-form-title">Novo contato</h2>
+        <form id="contact-form">
+          <input type="hidden" id="contact-id" />
+          <label>Telefone (com DDI+DDD) <input id="contact-phone" required placeholder="5511999999999" /></label>
+          <label>Nome <input id="contact-name" placeholder="Nome do contato" /></label>
+          <label>Papel
+            <select id="contact-role" required>
+              <option value="SOCIO">SOCIO</option>
+              <option value="GERENTE">GERENTE</option>
+              <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
+              <option value="OUTRO">OUTRO</option>
+            </select>
+          </label>
+          <label>Instância (opcional) <input id="contact-instance" placeholder="nome-da-instancia" /></label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="contact-submit">Adicionar</button>
+            <button type="button" class="btn btn-ghost hidden" id="contact-cancel">Cancelar edição</button>
+          </div>
+        </form>
+
+        <hr />
+
+        <h3>Importar CSV</h3>
+        <p class="hint">Colunas esperadas: <code>Nome, Telefone, Papel, Instancia</code></p>
+        <form id="contact-import-form">
+          <input type="file" id="contact-import-file" accept=".csv" required />
+          <button type="submit" class="btn btn-secondary">Importar</button>
+        </form>
+        <div id="contact-import-result"></div>
+      </div>
+
+      <div class="card">
+        <h2>Contatos cadastrados</h2>
+        <div class="filters">
+          <select id="contact-filter-role">
+            <option value="">Todos os papéis</option>
+            <option value="SOCIO">SOCIO</option>
+            <option value="GERENTE">GERENTE</option>
+            <option value="ADMINISTRATIVO">ADMINISTRATIVO</option>
+            <option value="OUTRO">OUTRO</option>
+          </select>
+          <input id="contact-filter-instance" placeholder="filtrar por instância" />
+          <button id="contact-filter-btn" class="btn btn-secondary">Filtrar</button>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Nome</th><th>Telefone</th><th>Papel</th><th>Instância</th><th></th></tr>
+          </thead>
+          <tbody id="contacts-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CONFIGURAÇÕES ===================== -->
+  <section id="tab-configs" class="tab-panel">
+    <div class="panel-grid">
+      <div class="card">
+        <h2 id="configs-form-title">Nova configuração de auditoria</h2>
+        <form id="config-form">
+          <input type="hidden" id="config-id" />
+          <label>Nome <input id="config-name" placeholder="Auditoria Semanal" /></label>
+          <label class="checkbox-label"><input type="checkbox" id="config-enabled" checked /> Habilitado</label>
+          <label>Periodicidade
+            <select id="config-periodicity" required>
+              <option value="WEEKLY">Semanal</option>
+              <option value="MONTHLY">Mensal</option>
+              <option value="YEARLY">Anual</option>
+              <option value="CUSTOM">Personalizado</option>
+            </select>
+          </label>
+          <div id="config-custom-dates" class="hidden">
+            <label>Data início <input type="datetime-local" id="config-custom-start" /></label>
+            <label>Data fim <input type="datetime-local" id="config-custom-end" /></label>
+          </div>
+          <label>Expressão cron <input id="config-cron" placeholder="0 2 * * 1" />
+            <span class="hint">Minuto Hora DiaDoMês Mês DiaDaSemana — ex.: "0 2 * * 1" = toda segunda às 02h</span>
+          </label>
+          <label>Instâncias auditadas <input id="config-instances" placeholder="ALL ou nome1,nome2" /></label>
+          <label>JIDs/números excluídos <input id="config-excluded" placeholder="5511999999999,..." /></label>
+          <label>Provedor de IA
+            <select id="config-provider" required>
+              <option value="GEMINI">Google Gemini</option>
+              <option value="CLAUDE">Anthropic Claude</option>
+            </select>
+          </label>
+          <label>Modelo <input id="config-model" required placeholder="claude-3-5-sonnet-latest" /></label>
+          <label>API Key <input type="password" id="config-apikey" placeholder="deixe em branco para manter a atual" />
+            <span class="hint" id="config-apikey-hint"></span>
+          </label>
+          <div class="grid-3">
+            <label>Temperature <input type="number" step="0.1" min="0" max="2" id="config-temperature" /></label>
+            <label>Top P <input type="number" step="0.1" min="0" max="1" id="config-topp" /></label>
+            <label>Max Tokens <input type="number" step="1" min="1" id="config-maxtokens" /></label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="config-submit">Criar</button>
+            <button type="button" class="btn btn-ghost hidden" id="config-cancel">Cancelar edição</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Configurações cadastradas</h2>
+        <table class="data-table">
+          <thead>
+            <tr><th>Nome</th><th>Periodicidade</th><th>Cron</th><th>Provedor</th><th>Chave</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody id="configs-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== DESTINATÁRIOS ===================== -->
+  <section id="tab-recipients" class="tab-panel">
+    <div class="panel-grid">
+      <div class="card">
+        <h2 id="recipients-form-title">Novo destinatário</h2>
+        <form id="recipient-form">
+          <input type="hidden" id="recipient-id" />
+          <label>Nome <input id="recipient-name" required placeholder="Diretoria" /></label>
+          <label>Telefone (com DDI+DDD) <input id="recipient-phone" required placeholder="5511999999999" /></label>
+          <label>Papel (opcional) <input id="recipient-role" placeholder="DIRECTOR, LEGAL, HR..." /></label>
+          <label>Condição de disparo
+            <select id="recipient-trigger">
+              <option value="ALWAYS">Sempre (relatório completo)</option>
+              <option value="ONLY_HIGH_CRITICAL">Apenas risco Alto/Crítico</option>
+            </select>
+          </label>
+          <label class="checkbox-label"><input type="checkbox" id="recipient-active" checked /> Ativo</label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="recipient-submit">Adicionar</button>
+            <button type="button" class="btn btn-ghost hidden" id="recipient-cancel">Cancelar edição</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Destinatários cadastrados</h2>
+        <table class="data-table">
+          <thead>
+            <tr><th>Nome</th><th>Telefone</th><th>Papel</th><th>Disparo</th><th>Ativo</th><th></th></tr>
+          </thead>
+          <tbody id="recipients-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== RELATÓRIOS ===================== -->
+  <section id="tab-reports" class="tab-panel">
+    <div class="card">
+      <h2>Histórico de relatórios</h2>
+      <div class="filters">
+        <select id="report-filter-status">
+          <option value="">Todos os status</option>
+          <option value="PROCESSING">Processando</option>
+          <option value="COMPLETED">Concluído</option>
+          <option value="FAILED">Falhou</option>
+        </select>
+        <select id="report-filter-risk">
+          <option value="">Todos os riscos</option>
+          <option value="LOW">Baixo</option>
+          <option value="MEDIUM">Médio</option>
+          <option value="HIGH">Alto</option>
+          <option value="CRITICAL">Crítico</option>
+        </select>
+        <button id="report-filter-btn" class="btn btn-secondary">Filtrar</button>
+        <button id="report-refresh-btn" class="btn btn-ghost">Atualizar</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Execução</th><th>Período</th><th>Instâncias</th><th>Risco</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="reports-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== MODAL DETALHE DO RELATÓRIO ===================== -->
+  <div id="report-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <button class="modal-close" id="report-modal-close">&times;</button>
+      <div id="report-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
