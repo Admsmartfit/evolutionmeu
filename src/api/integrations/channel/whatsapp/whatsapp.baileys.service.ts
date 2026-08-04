@@ -1175,6 +1175,18 @@ export class BaileysStartupService extends ChannelStartupService {
             continue;
           }
 
+          // WhatsApp's LID addressing rollout means remoteJid can arrive as a
+          // "@lid" identifier instead of the phone-number JID. Baileys attaches the
+          // phone-number equivalent as remoteJidAlt when it already resolved it, so
+          // normalize here, before any Chat/Message/Contact read or write below —
+          // this mutates the shared `received.key` object, which `messageRaw.key`
+          // (see prepareMessage below) also points to, so Message persistence and
+          // Contact upsert inherit the normalized value automatically.
+          const receivedKeyAlt = (received.key as { remoteJidAlt?: string }).remoteJidAlt;
+          if (received.key.remoteJid?.includes('@lid') && receivedKeyAlt) {
+            received.key.remoteJid = receivedKeyAlt;
+          }
+
           const existingChat = await this.prismaRepository.chat.findFirst({
             where: { instanceId: this.instanceId, remoteJid: received.key.remoteJid },
             select: { id: true, name: true },
@@ -1475,9 +1487,6 @@ export class BaileysStartupService extends ChannelStartupService {
           this.logger.verbose(messageRaw);
 
           sendTelemetry(`received.message.${messageRaw.messageType ?? 'unknown'}`);
-          if (messageRaw.key.remoteJid?.includes('@lid') && messageRaw.key.remoteJidAlt) {
-            messageRaw.key.remoteJid = messageRaw.key.remoteJidAlt;
-          }
           console.log(messageRaw);
 
           this.sendDataWebhook(Events.MESSAGES_UPSERT, messageRaw);
