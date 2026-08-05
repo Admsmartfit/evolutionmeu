@@ -774,6 +774,7 @@ model AuditConfig {
   customStartDate   DateTime?     @db.Timestamp
   customEndDate     DateTime?     @db.Timestamp
   cronExpression    String        @default("0 2 * * 1") @db.VarChar(50)
+  lookbackDays      Int?          @db.Integer // overrides the periodicity's default window size, in days
   selectedInstances Json?         @db.JsonB // ["instance_1"] ou ["ALL"]
   excludedJids      Json?         @db.JsonB // lista negra de JIDs/numeros excluidos da auditoria
   aiProvider        String        @db.VarChar(30) // "GEMINI", "CLAUDE"

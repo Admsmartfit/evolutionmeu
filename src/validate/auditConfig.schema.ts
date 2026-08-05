@@ -1,7 +1,7 @@
 import { JSONSchema7 } from 'json-schema';
 import { v4 } from 'uuid';
 
-export const AUDIT_PERIODICITIES = ['WEEKLY', 'MONTHLY', 'YEARLY', 'CUSTOM'];
+export const AUDIT_PERIODICITIES = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'CUSTOM'];
 export const AUDIT_AI_PROVIDERS = ['GEMINI', 'CLAUDE'];
 
 const isNotEmpty = (...propertyNames: string[]): JSONSchema7 => {
@@ -30,6 +30,7 @@ const commonProperties: JSONSchema7['properties'] = {
   customStartDate: { type: 'string', format: 'date-time' },
   customEndDate: { type: 'string', format: 'date-time' },
   cronExpression: { type: 'string' },
+  lookbackDays: { type: 'integer', minimum: 1, maximum: 3650 },
   selectedInstances: { type: 'array', items: { type: 'string' } },
   excludedJids: { type: 'array', items: { type: 'string' } },
   aiProvider: { type: 'string', enum: AUDIT_AI_PROVIDERS },

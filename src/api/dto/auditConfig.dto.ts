@@ -5,6 +5,7 @@ export class AuditConfigDto {
   customStartDate?: string;
   customEndDate?: string;
   cronExpression?: string;
+  lookbackDays?: number;
   selectedInstances?: string[];
   excludedJids?: string[];
   aiProvider: string;
@@ -22,6 +23,7 @@ export class AuditConfigUpdateDto {
   customStartDate?: string;
   customEndDate?: string;
   cronExpression?: string;
+  lookbackDays?: number;
   selectedInstances?: string[];
   excludedJids?: string[];
   aiProvider?: string;

@@ -12,6 +12,10 @@ export class AuditReportController {
     return this.auditReportService.findById(reportId);
   }
 
+  public async delete({ reportId }: { reportId: string }) {
+    return this.auditReportService.delete(reportId);
+  }
+
   public async getPdfBuffer({ reportId }: { reportId: string }) {
     return this.auditReportService.getPdfBuffer(reportId);
   }

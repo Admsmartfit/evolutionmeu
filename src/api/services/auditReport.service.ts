@@ -22,10 +22,11 @@ const LIST_SELECT = {
 } as const;
 
 /**
- * Read-only access to AuditReport rows (RF08 history) plus on-demand PDF rendering.
- * Regenerating the PDF from the stored row is cheap and deterministic — all the
- * AI-derived fields (executiveSummary, occurrencesDetails, riskMatrix) are already
- * persisted, so no AI call is needed to produce the PDF again for a "view" action.
+ * Access to AuditReport rows (RF08 history): listing, detail, on-demand PDF
+ * rendering, and deletion. Regenerating the PDF from the stored row is cheap and
+ * deterministic — all the AI-derived fields (executiveSummary, occurrencesDetails,
+ * riskMatrix) are already persisted, so no AI call is needed to produce the PDF
+ * again for a "view" action.
  */
 export class AuditReportService {
   constructor(
@@ -52,6 +53,14 @@ export class AuditReportService {
     }
 
     return report;
+  }
+
+  public async delete(reportId: string) {
+    await this.findById(reportId);
+
+    await this.prismaRepository.auditReport.delete({ where: { id: reportId } });
+
+    return { reportId, deleted: true };
   }
 
   public async getPdfBuffer(reportId: string): Promise<Buffer> {

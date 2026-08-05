@@ -35,6 +35,16 @@ export class AuditReportRouter extends RouterBroker {
         });
 
         res.status(HttpStatus.OK).json(response);
+      })
+      .delete('/:reportId', ...guards, async (req, res) => {
+        const response = await this.dataValidate<EmptyDto>({
+          request: req,
+          schema: null,
+          ClassRef: EmptyDto,
+          execute: (params) => auditReportController.delete(params as unknown as { reportId: string }),
+        });
+
+        res.status(HttpStatus.OK).json(response);
       });
   }
 

@@ -256,12 +256,96 @@
   // ---------------------------------------------------------------------
   // Audit Configs
   // ---------------------------------------------------------------------
+  const SCHEDULE_BLOCK_PERIODICITIES = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
+
+  function pad2(n) {
+    return String(n).padStart(2, '0');
+  }
+
   const Configs = {
     editingId: null,
+    advancedCron: false,
 
-    toggleCustomDates() {
-      const isCustom = document.getElementById('config-periodicity').value === 'CUSTOM';
-      document.getElementById('config-custom-dates').classList.toggle('hidden', !isCustom);
+    toggleScheduleUI() {
+      const periodicity = document.getElementById('config-periodicity').value;
+      document.getElementById('config-custom-dates').classList.toggle('hidden', periodicity !== 'CUSTOM');
+      SCHEDULE_BLOCK_PERIODICITIES.forEach((p) => {
+        document.getElementById('config-schedule-' + p.toLowerCase()).classList.toggle('hidden', p !== periodicity);
+      });
+      if (!this.advancedCron) this.regenerateCron();
+    },
+
+    setAdvancedCron(enabled) {
+      this.advancedCron = enabled;
+      document.getElementById('config-cron-label').classList.toggle('hidden', !enabled);
+      document.getElementById('config-cron-toggle').textContent = enabled
+        ? 'Usar campos guiados (voltar ao modo simples)'
+        : 'Editar expressão cron manualmente (avançado)';
+      if (!enabled) this.regenerateCron();
+    },
+
+    buildCronFromFriendly(periodicity) {
+      if (periodicity === 'DAILY') {
+        const [h, m] = (document.getElementById('config-time-daily').value || '02:00').split(':');
+        return `${Number(m)} ${Number(h)} * * *`;
+      }
+      if (periodicity === 'WEEKLY') {
+        const [h, m] = (document.getElementById('config-time-weekly').value || '02:00').split(':');
+        const dow = document.getElementById('config-weekday').value;
+        return `${Number(m)} ${Number(h)} * * ${dow}`;
+      }
+      if (periodicity === 'MONTHLY') {
+        const [h, m] = (document.getElementById('config-time-monthly').value || '02:00').split(':');
+        const dom = document.getElementById('config-month-position').value === 'end' ? 28 : 1;
+        return `${Number(m)} ${Number(h)} ${dom} * *`;
+      }
+      if (periodicity === 'YEARLY') {
+        const [h, m] = (document.getElementById('config-time-yearly').value || '02:00').split(':');
+        const month = document.getElementById('config-year-month').value;
+        const day = document.getElementById('config-year-day').value || '1';
+        return `${Number(m)} ${Number(h)} ${Number(day)} ${month} *`;
+      }
+      return null;
+    },
+
+    regenerateCron() {
+      const generated = this.buildCronFromFriendly(document.getElementById('config-periodicity').value);
+      if (generated) document.getElementById('config-cron').value = generated;
+    },
+
+    /** Best-effort reverse-parse of a stored cron into the friendly fields. Returns
+     * false (and leaves the fields untouched) when the cron doesn't match one of the
+     * shapes the friendly builder itself produces — the caller then falls back to
+     * advanced mode so the real stored value is never silently misrepresented. */
+    parseCronIntoFriendly(periodicity, cronExpression) {
+      if (!cronExpression) return false;
+      const parts = cronExpression.trim().split(/\s+/);
+      if (parts.length !== 5) return false;
+      const [min, hour, dom, month, dow] = parts;
+      if (!/^\d+$/.test(min) || !/^\d+$/.test(hour)) return false;
+      const time = pad2(Number(hour)) + ':' + pad2(Number(min));
+
+      if (periodicity === 'DAILY' && dom === '*' && month === '*' && dow === '*') {
+        document.getElementById('config-time-daily').value = time;
+        return true;
+      }
+      if (periodicity === 'WEEKLY' && dom === '*' && month === '*' && /^[0-6]$/.test(dow)) {
+        document.getElementById('config-time-weekly').value = time;
+        document.getElementById('config-weekday').value = dow;
+        return true;
+      }
+      if (periodicity === 'MONTHLY' && (dom === '1' || dom === '28') && month === '*' && dow === '*') {
+        document.getElementById('config-time-monthly').value = time;
+        document.getElementById('config-month-position').value = dom === '28' ? 'end' : 'start';
+        return true;
+      }
+      if (periodicity === 'YEARLY' && /^\d{1,2}$/.test(dom) && /^\d{1,2}$/.test(month) && dow === '*') {
+        document.getElementById('config-time-yearly').value = time;
+        document.getElementById('config-year-month').value = String(Number(month));
+        document.getElementById('config-year-day').value = String(Number(dom));
+        return true;
+      }
+      return false;
     },
 
     async load() {
@@ -317,6 +401,7 @@
       document.getElementById('config-custom-start').value = config.customStartDate ? config.customStartDate.slice(0, 16) : '';
       document.getElementById('config-custom-end').value = config.customEndDate ? config.customEndDate.slice(0, 16) : '';
       document.getElementById('config-cron').value = config.cronExpression || '';
+      document.getElementById('config-lookback').value = config.lookbackDays ?? '';
       document.getElementById('config-instances').value = (config.selectedInstances || []).join(',');
       document.getElementById('config-excluded').value = (config.excludedJids || []).join(',');
       document.getElementById('config-provider').value = config.aiProvider;
@@ -328,7 +413,14 @@
       document.getElementById('config-temperature').value = config.temperature ?? '';
       document.getElementById('config-topp').value = config.topP ?? '';
       document.getElementById('config-maxtokens').value = config.maxTokens ?? '';
-      this.toggleCustomDates();
+
+      // Populate the friendly fields from the stored cron before switching modes,
+      // so simple mode shows the real schedule instead of stale leftovers from a
+      // previous edit/create pass.
+      const parsed = this.parseCronIntoFriendly(config.periodicity, config.cronExpression);
+      this.setAdvancedCron(config.periodicity === 'CUSTOM' ? Boolean(config.cronExpression) : !parsed);
+      this.toggleScheduleUI();
+
       document.getElementById('configs-form-title').textContent = 'Editar configuração';
       document.getElementById('config-submit').textContent = 'Salvar alterações';
       document.getElementById('config-cancel').classList.remove('hidden');
@@ -339,7 +431,8 @@
       document.getElementById('config-form').reset();
       document.getElementById('config-id').value = '';
       document.getElementById('config-apikey-hint').textContent = '';
-      this.toggleCustomDates();
+      this.setAdvancedCron(false);
+      this.toggleScheduleUI();
       document.getElementById('configs-form-title').textContent = 'Nova configuração de auditoria';
       document.getElementById('config-submit').textContent = 'Criar';
       document.getElementById('config-cancel').classList.add('hidden');
@@ -352,6 +445,7 @@
         enabled: document.getElementById('config-enabled').checked,
         periodicity: document.getElementById('config-periodicity').value,
         cronExpression: document.getElementById('config-cron').value.trim() || undefined,
+        lookbackDays: numberOrUndefined('config-lookback'),
         selectedInstances: splitList(document.getElementById('config-instances').value),
         excludedJids: splitList(document.getElementById('config-excluded').value),
         aiProvider: document.getElementById('config-provider').value,
@@ -526,6 +620,8 @@
   // Reports
   // ---------------------------------------------------------------------
   const Reports = {
+    lastList: [],
+
     async load() {
       const status = document.getElementById('report-filter-status').value;
       const risk = document.getElementById('report-filter-risk').value;
@@ -535,10 +631,43 @@
 
       try {
         const list = await apiFetch('/audit/reports/find?' + params.toString());
-        this.render(list);
+        this.lastList = list || [];
+        this.render(this.lastList);
       } catch (err) {
         handleError(err);
       }
+    },
+
+    async remove(id) {
+      if (!confirm('Excluir este relatório? Essa ação não pode ser desfeita.')) return;
+      try {
+        await apiFetch('/audit/reports/' + id, { method: 'DELETE' });
+        toast('Relatório excluído.');
+        this.load();
+      } catch (err) {
+        handleError(err);
+      }
+    },
+
+    async clearFailed() {
+      const failed = this.lastList.filter((r) => r.status === 'FAILED');
+      if (failed.length === 0) {
+        toast('Nenhum relatório com falha na lista atual.');
+        return;
+      }
+      if (!confirm(`Excluir ${failed.length} relatório(s) com falha? Essa ação não pode ser desfeita.`)) return;
+
+      let deleted = 0;
+      for (const report of failed) {
+        try {
+          await apiFetch('/audit/reports/' + report.id, { method: 'DELETE' });
+          deleted++;
+        } catch (err) {
+          handleError(err);
+        }
+      }
+      toast(`${deleted} de ${failed.length} relatório(s) com falha excluído(s).`);
+      this.load();
     },
 
     riskBadge(level) {
@@ -569,6 +698,7 @@
           <td>
             <button class="btn btn-secondary btn-sm" data-detail="${r.id}">Detalhes</button>
             <a class="btn btn-primary btn-sm" href="/audit/reports/${r.id}/pdf" target="_blank" rel="noopener">PDF</a>
+            <button class="btn btn-danger btn-sm" data-delete="${r.id}">Excluir</button>
           </td>
         </tr>`,
         )
@@ -576,6 +706,9 @@
 
       tbody.querySelectorAll('[data-detail]').forEach((btn) =>
         btn.addEventListener('click', () => this.showDetail(btn.dataset.detail)),
+      );
+      tbody.querySelectorAll('[data-delete]').forEach((btn) =>
+        btn.addEventListener('click', () => this.remove(btn.dataset.delete)),
       );
     },
 
@@ -658,13 +791,32 @@
 
     document.getElementById('config-form').addEventListener('submit', (e) => Configs.submit(e));
     document.getElementById('config-cancel').addEventListener('click', () => Configs.cancelEdit());
-    document.getElementById('config-periodicity').addEventListener('change', () => Configs.toggleCustomDates());
+    document.getElementById('config-periodicity').addEventListener('change', () => Configs.toggleScheduleUI());
+    document
+      .getElementById('config-cron-toggle')
+      .addEventListener('click', () => Configs.setAdvancedCron(!Configs.advancedCron));
+    [
+      'config-time-daily',
+      'config-weekday',
+      'config-time-weekly',
+      'config-month-position',
+      'config-time-monthly',
+      'config-year-month',
+      'config-year-day',
+      'config-time-yearly',
+    ].forEach((id) => {
+      document.getElementById(id).addEventListener('change', () => {
+        if (!Configs.advancedCron) Configs.regenerateCron();
+      });
+    });
+    Configs.toggleScheduleUI();
 
     document.getElementById('recipient-form').addEventListener('submit', (e) => Recipients.submit(e));
     document.getElementById('recipient-cancel').addEventListener('click', () => Recipients.cancelEdit());
 
     document.getElementById('report-filter-btn').addEventListener('click', () => Reports.load());
     document.getElementById('report-refresh-btn').addEventListener('click', () => Reports.load());
+    document.getElementById('report-clear-failed-btn').addEventListener('click', () => Reports.clearFailed());
     document.getElementById('report-modal-close').addEventListener('click', () => document.getElementById('report-modal').classList.add('hidden'));
     document.getElementById('report-modal').addEventListener('click', (e) => {
       if (e.target.id === 'report-modal') document.getElementById('report-modal').classList.add('hidden');

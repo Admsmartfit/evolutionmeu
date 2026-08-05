@@ -97,35 +97,99 @@
           <label class="checkbox-label"><input type="checkbox" id="config-enabled" checked /> Habilitado</label>
           <label>Periodicidade
             <select id="config-periodicity" required>
+              <option value="DAILY">Diária</option>
               <option value="WEEKLY">Semanal</option>
               <option value="MONTHLY">Mensal</option>
               <option value="YEARLY">Anual</option>
-              <option value="CUSTOM">Personalizado</option>
+              <option value="CUSTOM">Personalizado (período fixo, sem repetição)</option>
             </select>
           </label>
+
           <div id="config-custom-dates" class="hidden">
             <label>Data início <input type="datetime-local" id="config-custom-start" /></label>
             <label>Data fim <input type="datetime-local" id="config-custom-end" /></label>
+            <span class="hint">Um período fixo, auditado uma vez (use "Rodar agora" na lista). Não é reagendado automaticamente, a menos que você defina uma expressão cron manual abaixo.</span>
           </div>
-          <label>Expressão cron <input id="config-cron" placeholder="0 2 * * 1" />
-            <span class="hint">Minuto Hora DiaDoMês Mês DiaDaSemana — ex.: "0 2 * * 1" = toda segunda às 02h</span>
+
+          <div id="config-schedule-daily" class="schedule-block hidden">
+            <label>Horário do disparo <input type="time" id="config-time-daily" value="02:00" /></label>
+          </div>
+
+          <div id="config-schedule-weekly" class="schedule-block hidden">
+            <label>Dia da semana
+              <select id="config-weekday">
+                <option value="1">Segunda-feira</option>
+                <option value="2">Terça-feira</option>
+                <option value="3">Quarta-feira</option>
+                <option value="4">Quinta-feira</option>
+                <option value="5">Sexta-feira</option>
+                <option value="6">Sábado</option>
+                <option value="0">Domingo</option>
+              </select>
+            </label>
+            <label>Horário do disparo <input type="time" id="config-time-weekly" value="02:00" /></label>
+          </div>
+
+          <div id="config-schedule-monthly" class="schedule-block hidden">
+            <label>Quando no mês
+              <select id="config-month-position">
+                <option value="start">Início do mês (dia 1)</option>
+                <option value="end">Fim do mês (dia 28)</option>
+              </select>
+            </label>
+            <label>Horário do disparo <input type="time" id="config-time-monthly" value="02:00" /></label>
+          </div>
+
+          <div id="config-schedule-yearly" class="schedule-block hidden">
+            <label>Mês
+              <select id="config-year-month">
+                <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+                <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+                <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+                <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+              </select>
+            </label>
+            <label>Dia do mês <input type="number" min="1" max="28" id="config-year-day" value="1" /></label>
+            <label>Horário do disparo <input type="time" id="config-time-yearly" value="02:00" /></label>
+          </div>
+
+          <button type="button" class="btn btn-ghost btn-sm" id="config-cron-toggle">Editar expressão cron manualmente (avançado)</button>
+          <label id="config-cron-label" class="hidden">Expressão cron <input id="config-cron" placeholder="0 2 * * 1" />
+            <span class="hint">Minuto Hora DiaDoMês Mês DiaDaSemana — ex.: "0 2 * * 1" = toda segunda às 02h. Preenchida automaticamente pelos campos acima; edite aqui só se precisar de algo que eles não cobrem.</span>
           </label>
-          <label>Instâncias auditadas <input id="config-instances" placeholder="ALL ou nome1,nome2" /></label>
-          <label>JIDs/números excluídos <input id="config-excluded" placeholder="5511999999999,..." /></label>
+
+          <label>Janela de mensagens (dias) <input type="number" min="1" id="config-lookback" placeholder="deixe em branco para usar o padrão" />
+            <span class="hint">Quantos dias de mensagens anteriores à execução entram no relatório — independente da periodicidade. Ex.: periodicidade Semanal, mas Janela = 5 evita repetir conversa se a execução atrasar. Vazio = padrão da periodicidade (Diária=1, Semanal=7, Mensal=30, Anual=365 dias).</span>
+          </label>
+
+          <label>Instâncias auditadas <input id="config-instances" placeholder="ALL ou nome1,nome2" />
+            <span class="hint">"ALL" audita todas as instâncias conectadas. Ou liste nomes específicos separados por vírgula (ex.: ricardo cel,secullum10).</span>
+          </label>
+          <label>JIDs/números excluídos <input id="config-excluded" placeholder="5511999999999,..." />
+            <span class="hint">Números ou grupos que NUNCA entram na auditoria, mesmo estando numa instância selecionada — útil pra excluir bots, grupos de notificação ou contatos que não devem ser monitorados. Separe por vírgula.</span>
+          </label>
           <label>Provedor de IA
             <select id="config-provider" required>
               <option value="GEMINI">Google Gemini</option>
               <option value="CLAUDE">Anthropic Claude</option>
             </select>
           </label>
-          <label>Modelo <input id="config-model" required placeholder="claude-3-5-sonnet-latest" /></label>
+          <label>Modelo <input id="config-model" required placeholder="claude-3-5-sonnet-latest" />
+            <span class="hint">Nome exato do modelo na API do provedor escolhido (ex.: gemini-flash-latest, claude-3-5-sonnet-latest) — não é uma URL nem o nome da instância.</span>
+          </label>
           <label>API Key <input type="password" id="config-apikey" placeholder="deixe em branco para manter a atual" />
             <span class="hint" id="config-apikey-hint"></span>
           </label>
           <div class="grid-3">
-            <label>Temperature <input type="number" step="0.1" min="0" max="2" id="config-temperature" /></label>
-            <label>Top P <input type="number" step="0.1" min="0" max="1" id="config-topp" /></label>
-            <label>Max Tokens <input type="number" step="1" min="1" id="config-maxtokens" /></label>
+            <label>Temperature <input type="number" step="0.1" min="0" max="2" id="config-temperature" />
+              <span class="hint">Aleatoriedade da resposta da IA: 0 = sempre a resposta mais previsível/consistente; 2 = mais variação entre execuções. Pra auditoria de compliance, valores baixos (0.2–0.5) dão relatórios mais consistentes.</span>
+            </label>
+            <label>Top P <input type="number" step="0.1" min="0" max="1" id="config-topp" />
+              <span class="hint">Outro controle de aleatoriedade (amostragem por probabilidade). Normalmente não precisa mexer — deixe em branco.</span>
+            </label>
+            <label>Max Tokens <input type="number" step="1" min="1" id="config-maxtokens" />
+              <span class="hint">Tamanho máximo da resposta da IA (~3-4 caracteres por token). Deixe em branco pra usar o padrão; só aumente se os relatórios saírem cortados.</span>
+            </label>
           </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" id="config-submit">Criar</button>
@@ -202,6 +266,7 @@
         </select>
         <button id="report-filter-btn" class="btn btn-secondary">Filtrar</button>
         <button id="report-refresh-btn" class="btn btn-ghost">Atualizar</button>
+        <button id="report-clear-failed-btn" class="btn btn-danger">Limpar relatórios com falha</button>
       </div>
       <table class="data-table">
         <thead>
