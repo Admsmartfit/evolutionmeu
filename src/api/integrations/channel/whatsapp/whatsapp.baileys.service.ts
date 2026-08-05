@@ -2312,14 +2312,21 @@ export class BaileysStartupService extends ChannelStartupService {
     this.logger.verbose(`Sending message to ${sender}`);
 
     try {
-      if (options?.delay) {
-        this.logger.verbose(`Typing for ${options.delay}ms to ${sender}`);
-        if (options.delay > 20000) {
-          let remainingDelay = options.delay;
+      // Presence simulation ("composing"/"recording") runs before every outgoing
+      // message, with no opt-out: callers may still customize the duration/presence
+      // type via `options.delay`/`options.presence`, but omitting them no longer
+      // skips it — it just falls back to a 1200ms "typing" default. Broadcast
+      // destinations (status updates) have no typing concept, so they're skipped.
+      if (!sender.includes('@broadcast')) {
+        const typingDelay = options?.delay || 1200;
+
+        this.logger.verbose(`Typing for ${typingDelay}ms to ${sender}`);
+        if (typingDelay > 20000) {
+          let remainingDelay = typingDelay;
           while (remainingDelay > 20000) {
             await this.client.presenceSubscribe(sender);
 
-            await this.client.sendPresenceUpdate((options.presence as WAPresence) ?? 'composing', sender);
+            await this.client.sendPresenceUpdate((options?.presence as WAPresence) ?? 'composing', sender);
 
             await delay(20000);
 
@@ -2330,7 +2337,7 @@ export class BaileysStartupService extends ChannelStartupService {
           if (remainingDelay > 0) {
             await this.client.presenceSubscribe(sender);
 
-            await this.client.sendPresenceUpdate((options.presence as WAPresence) ?? 'composing', sender);
+            await this.client.sendPresenceUpdate((options?.presence as WAPresence) ?? 'composing', sender);
 
             await delay(remainingDelay);
 
@@ -2339,9 +2346,9 @@ export class BaileysStartupService extends ChannelStartupService {
         } else {
           await this.client.presenceSubscribe(sender);
 
-          await this.client.sendPresenceUpdate((options.presence as WAPresence) ?? 'composing', sender);
+          await this.client.sendPresenceUpdate((options?.presence as WAPresence) ?? 'composing', sender);
 
-          await delay(options.delay);
+          await delay(typingDelay);
 
           await this.client.sendPresenceUpdate('paused', sender);
         }
