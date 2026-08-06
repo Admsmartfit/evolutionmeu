@@ -6,6 +6,22 @@ import { AuditWhatsAppMessageInput, buildAuditWhatsAppMessage } from './auditWha
 import { WAMonitoringService } from './monitor.service';
 
 const HIGH_RISK_LEVELS = ['HIGH', 'CRITICAL'];
+// WhatsApp caps media captions around 1024 characters; stay safely under that.
+const MAX_CAPTION_LENGTH = 1000;
+// Gap between different recipients so a report with several recipients doesn't
+// blast them all in immediate succession — on top of the per-send typing
+// simulation baileys already runs before each individual message.
+const RECIPIENT_DELAY_MS = 15000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function truncateCaption(text: string): string {
+  if (text.length <= MAX_CAPTION_LENGTH) return text;
+
+  return text.slice(0, MAX_CAPTION_LENGTH - 40) + '\n\n[...] Relatório completo no PDF anexo.';
+}
 
 export type AuditReportDeliveryParams = AuditWhatsAppMessageInput & {
   reportId: string;
@@ -21,10 +37,14 @@ export type AuditReportDeliveryResult = {
 };
 
 /**
- * Sends the executive text message (RF08.3, PRD section 8.1) + the PDF report as a
- * WhatsApp document to every active AuditRecipient whose triggerCondition matches
- * the report's risk level. Delivery is best-effort per recipient: one failure (bad
- * number, disconnected instance) never blocks the others.
+ * Sends the PDF report as a single WhatsApp document message, with the executive
+ * summary (RF08.3, PRD section 8.1) as its caption, to every active AuditRecipient
+ * whose triggerCondition matches the report's risk level. This is intentionally
+ * ONE message per recipient, not a text message followed by a separate document —
+ * two messages fired back-to-back looks like automated/bulk behavior to WhatsApp's
+ * abuse detection and risks the sending account getting flagged or banned. Delivery
+ * is best-effort per recipient: one failure (bad number, disconnected instance)
+ * never blocks the others.
  */
 export class AuditReportDeliveryService {
   constructor(
@@ -53,22 +73,24 @@ export class AuditReportDeliveryService {
       return result;
     }
 
-    const messageText = buildAuditWhatsAppMessage(params);
+    const caption = truncateCaption(buildAuditWhatsAppMessage(params));
     const base64Pdf = params.pdfBuffer.toString('base64');
     const fileName = `auditoria-compliance-${params.reportId}.pdf`;
 
-    for (const recipient of recipients) {
+    for (let i = 0; i < recipients.length; i++) {
+      const recipient = recipients[i];
+
       if (!this.shouldNotify(recipient.triggerCondition, params.overallRiskLevel)) {
         result.skipped.push(recipient.name);
         continue;
       }
 
       try {
-        await instance.textMessage({ number: recipient.phoneNumber, text: messageText });
         await instance.mediaMessage({
           number: recipient.phoneNumber,
           mediatype: 'document',
           fileName,
+          caption,
           media: base64Pdf,
         });
 
@@ -78,6 +100,8 @@ export class AuditReportDeliveryService {
         this.logger.error(`Failed to deliver audit report ${params.reportId} to ${recipient.name}: ${reason}`);
         result.failed.push({ recipient: recipient.name, reason });
       }
+
+      if (i < recipients.length - 1) await sleep(RECIPIENT_DELAY_MS);
     }
 
     return result;
