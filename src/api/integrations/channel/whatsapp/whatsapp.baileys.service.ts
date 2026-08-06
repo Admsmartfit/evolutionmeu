@@ -1167,6 +1167,14 @@ export class BaileysStartupService extends ChannelStartupService {
             continue;
           }
 
+          // "placeholderMessage" is a Baileys/WhatsApp protocol construct (e.g. linked-device
+          // masking, on-demand history-sync placeholders) — it has no user-visible content, so
+          // persisting/exposing it as a normal chat message just confuses the Manager UI, which
+          // has no renderer for it ("Unknown message type: placeholderMessage").
+          if (getContentType(received.message) === 'placeholderMessage') {
+            continue;
+          }
+
           if (Long.isLong(received.messageTimestamp)) {
             received.messageTimestamp = received.messageTimestamp?.toNumber();
           }
@@ -3869,7 +3877,7 @@ export class BaileysStartupService extends ChannelStartupService {
 
       if ('messageContextInfo' in msg.message && Object.keys(msg.message).length === 1) {
         this.logger.verbose('Message contains only messageContextInfo, skipping media processing');
-        return null;
+        throw 'Message has no downloadable media (only protocol/context metadata)';
       }
 
       let mediaMessage: any;

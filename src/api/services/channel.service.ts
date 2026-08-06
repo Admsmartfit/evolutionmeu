@@ -615,12 +615,18 @@ export class ChannelStartupService {
       }
     }
 
+    // Baileys protocol/placeholder messages (e.g. linked-device masking) carry no
+    // user-visible content and have no renderer in the Manager UI, so they're hidden
+    // by default. A caller that explicitly asks for a specific messageType still gets
+    // exactly that type, placeholder included.
+    const messageTypeFilter = query?.where?.messageType ?? { notIn: ['placeholderMessage'] };
+
     const count = await this.prismaRepository.message.count({
       where: {
         instanceId: this.instanceId,
         id: query?.where?.id,
         source: query?.where?.source,
-        messageType: query?.where?.messageType,
+        messageType: messageTypeFilter,
         ...timestampFilter,
         AND: [
           keyFilters?.id ? { key: { path: ['id'], equals: keyFilters?.id } } : {},
@@ -644,7 +650,7 @@ export class ChannelStartupService {
         instanceId: this.instanceId,
         id: query?.where?.id,
         source: query?.where?.source,
-        messageType: query?.where?.messageType,
+        messageType: messageTypeFilter,
         ...timestampFilter,
         AND: [
           keyFilters?.id ? { key: { path: ['id'], equals: keyFilters?.id } } : {},
