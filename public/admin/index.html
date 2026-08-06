@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Administrativo — Evolution API</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Painel Administrativo</h1>
+    <span class="topbar-subtitle">Evolution API</span>
+  </header>
+
+  <main class="content">
+    <p class="hint">Adicione esta página aos favoritos do navegador — é o ponto de partida pra tudo.</p>
+
+    <div class="grid">
+      <a class="card" href="/manager/" target="_blank" rel="noopener">
+        <div class="card-icon">💬</div>
+        <h2>Manager</h2>
+        <p>Painel oficial: instâncias, conversas, contatos e configurações do WhatsApp.</p>
+      </a>
+
+      <a class="card" href="/audit-manager/" target="_blank" rel="noopener">
+        <div class="card-icon">⚖️</div>
+        <h2>Auditoria &amp; Compliance</h2>
+        <p>Papéis de contatos, configurações de auditoria por IA, destinatários e relatórios.</p>
+      </a>
+
+      <a class="card" href="/connect-qr-admin/" target="_blank" rel="noopener">
+        <div class="card-icon">🔗</div>
+        <h2>Gerar Link de Conexão</h2>
+        <p>Lista as instâncias e copia o link do QR Code pra enviar a quem vai conectar o WhatsApp.</p>
+      </a>
+    </div>
+
+    <div class="note">
+      <strong>Sobre a página de QR Code (<code>/connect-qr/</code>):</strong> ela não fica aqui de propósito —
+      não é uma página que você acessa diretamente, é o link que você <em>gera</em> na aba
+      "Gerar Link de Conexão" e envia pra outra pessoa escanear.
+    </div>
+  </main>
+</body>
+</html>
