@@ -34,8 +34,8 @@ export class OpenaiService extends BaseChatbotService<OpenaiBot, OpenaiSetting> 
   /**
    * Initialize the OpenAI client with the provided API key
    */
-  protected initClient(apiKey: string) {
-    this.client = new OpenAI({ apiKey });
+  protected initClient(apiKey: string, baseURL?: string) {
+    this.client = new OpenAI(baseURL ? { apiKey, baseURL } : { apiKey });
     return this.client;
   }
 
@@ -70,7 +70,7 @@ export class OpenaiService extends BaseChatbotService<OpenaiBot, OpenaiSetting> 
         }
 
         // Initialize OpenAI client for transcription
-        this.initClient(creds.apiKey);
+        this.initClient(creds.apiKey, creds.baseUrl);
 
         // Transcribe the audio
         const transcription = await this.speechToText(msg, instance);
@@ -721,8 +721,9 @@ export class OpenaiService extends BaseChatbotService<OpenaiBot, OpenaiSetting> 
     formData.append('language', lang);
 
     const apiKey = creds?.apiKey || this.configService.get<OpenaiConfig>('OPENAI').API_KEY_GLOBAL;
+    const baseUrl = (creds?.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
 
-    const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+    const response = await axios.post(`${baseUrl}/v1/audio/transcriptions`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
         Authorization: `Bearer ${apiKey}`,

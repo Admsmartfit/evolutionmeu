@@ -3,6 +3,7 @@ import { BaseChatbotDto, BaseChatbotSettingDto } from '../../base-chatbot.dto';
 export class OpenaiCredsDto {
   name: string;
   apiKey: string;
+  baseUrl?: string;
 }
 
 export class OpenaiDto extends BaseChatbotDto {

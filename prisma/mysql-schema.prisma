@@ -427,6 +427,7 @@ model OpenaiCreds {
   id              String         @id @default(cuid())
   name            String?        @unique @db.VarChar(255)
   apiKey          String?        @unique @db.VarChar(255)
+  baseUrl         String?        @db.VarChar(255)
   createdAt       DateTime?      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp
   updatedAt       DateTime       @updatedAt @db.Timestamp
   Instance        Instance       @relation(fields: [instanceId], references: [id], onDelete: Cascade)

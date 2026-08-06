@@ -263,6 +263,7 @@ export class OpenaiController extends BaseChatbotController<OpenaiBot, OpenaiDto
         data: {
           name: data.name,
           apiKey: data.apiKey,
+          baseUrl: data.baseUrl,
           instanceId: instanceId,
         },
       });
@@ -434,6 +435,7 @@ export class OpenaiController extends BaseChatbotController<OpenaiBot, OpenaiDto
     if (!instanceId) throw new Error('Instance not found');
 
     let apiKey: string;
+    let baseUrl: string;
 
     if (openaiCredsId) {
       // Use specific credential ID if provided
@@ -447,6 +449,7 @@ export class OpenaiController extends BaseChatbotController<OpenaiBot, OpenaiDto
       if (!creds) throw new Error('OpenAI credentials not found for the provided ID');
 
       apiKey = creds.apiKey;
+      baseUrl = creds.baseUrl;
     } else {
       // Use default credentials from settings if no ID provided
       const defaultSettings = await this.settingsRepository.findFirst({
@@ -466,10 +469,11 @@ export class OpenaiController extends BaseChatbotController<OpenaiBot, OpenaiDto
         );
 
       apiKey = defaultSettings.OpenaiCreds.apiKey;
+      baseUrl = defaultSettings.OpenaiCreds.baseUrl;
     }
 
     try {
-      this.client = new OpenAI({ apiKey });
+      this.client = new OpenAI(baseUrl ? { apiKey, baseURL: baseUrl } : { apiKey });
 
       const models: any = await this.client.models.list();
 

@@ -19,8 +19,39 @@ services:
     depends_on:
       - evolution_postgres
       - evolution_redis
+      - evolution_minio
     volumes:
       - evolution_instances:/evolution/instances
+
+  evolution_minio:
+    image: minio/minio:latest
+    container_name: evolution_minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    ports:
+      # 9000 = S3 API (must be reachable by the browser for media playback in the
+      # Manager — proxy this behind HTTPS, e.g. https://s3.ricardo.home.nom.br, the
+      # same way evolution-api itself is proxied). 9001 = web console (admin only,
+      # fine to keep on the LAN / behind the firewall).
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  evolution_whisper:
+    image: fedirz/faster-whisper-server:latest-cpu
+    container_name: evolution_whisper
+    restart: always
+    environment:
+      WHISPER__MODEL: Systran/faster-whisper-small
+    volumes:
+      - whisper_data:/home/ubuntu/.cache/huggingface
+    # No published port on purpose — evolution-api reaches it over the internal
+    # Docker network only (http://evolution_whisper:8000), it never needs to be
+    # exposed to the internet.
 
   evolution_postgres:
     image: postgres:15-alpine

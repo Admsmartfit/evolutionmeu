@@ -58,6 +58,11 @@ export const openaiCredsSchema: JSONSchema7 = {
   properties: {
     name: { type: 'string' },
     apiKey: { type: 'string' },
+    baseUrl: {
+      type: 'string',
+      description:
+        'Optional OpenAI-compatible API base URL (e.g. a self-hosted Whisper server). Defaults to https://api.openai.com',
+    },
   },
   required: ['name', 'apiKey'],
   ...isNotEmpty('name', 'apiKey'),
