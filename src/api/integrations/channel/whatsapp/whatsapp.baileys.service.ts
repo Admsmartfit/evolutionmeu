@@ -1119,24 +1119,39 @@ export class BaileysStartupService extends ChannelStartupService {
             }
           }
 
-          const editedMessage =
+          const protocolMessage =
             received?.message?.protocolMessage || received?.message?.editedMessage?.message?.protocolMessage;
 
-          if (editedMessage) {
+          // A WhatsApp protocolMessage carries both real edits (type MESSAGE_EDIT) and
+          // "delete for everyone" (type REVOKE, the enum's default/unset value) — these
+          // were previously handled identically as an edit, which mislabeled deleted
+          // messages as `status: 'EDITED'` (Prisma silently drops the `undefined`
+          // `editedMessage.editedMessage` field on a revoke, so the original content
+          // stayed in place, just wrongly tagged) and fired MESSAGES_EDITED instead of
+          // MESSAGES_DELETE. That mismatch is what the Manager UI doesn't know how to
+          // render and crashes on.
+          const isEditProtocolMessage =
+            protocolMessage?.type === proto.Message.ProtocolMessage.Type.MESSAGE_EDIT && protocolMessage.editedMessage;
+          const isRevokeProtocolMessage =
+            protocolMessage &&
+            !isEditProtocolMessage &&
+            protocolMessage.type !== proto.Message.ProtocolMessage.Type.MESSAGE_EDIT;
+
+          if (isEditProtocolMessage) {
             if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled)
               this.chatwootService.eventWhatsapp(
                 'messages.edit',
                 { instanceName: this.instance.name, instanceId: this.instance.id },
-                editedMessage,
+                protocolMessage,
               );
 
-            await this.sendDataWebhook(Events.MESSAGES_EDITED, editedMessage);
+            await this.sendDataWebhook(Events.MESSAGES_EDITED, protocolMessage);
 
-            if (received.key?.id && editedMessage.key?.id) {
-              await this.baileysCache.set(`protocol_${received.key.id}`, editedMessage.key.id, 60 * 60 * 24);
+            if (received.key?.id && protocolMessage.key?.id) {
+              await this.baileysCache.set(`protocol_${received.key.id}`, protocolMessage.key.id, 60 * 60 * 24);
             }
 
-            const oldMessage = await this.getMessage(editedMessage.key, true);
+            const oldMessage = await this.getMessage(protocolMessage.key, true);
             if ((oldMessage as any)?.id) {
               const editedMessageTimestamp = Long.isLong(received?.messageTimestamp)
                 ? Math.floor(received?.messageTimestamp.toNumber())
@@ -1145,25 +1160,56 @@ export class BaileysStartupService extends ChannelStartupService {
               await this.prismaRepository.message.update({
                 where: { id: (oldMessage as any).id },
                 data: {
-                  message: editedMessage.editedMessage as any,
+                  message: protocolMessage.editedMessage as any,
                   messageTimestamp: editedMessageTimestamp,
                   status: 'EDITED',
                 },
               });
               await this.prismaRepository.messageUpdate.create({
                 data: {
-                  fromMe: editedMessage.key.fromMe,
-                  keyId: editedMessage.key.id,
-                  remoteJid: editedMessage.key.remoteJid,
+                  fromMe: protocolMessage.key.fromMe,
+                  keyId: protocolMessage.key.id,
+                  remoteJid: protocolMessage.key.remoteJid,
                   status: 'EDITED',
                   instanceId: this.instanceId,
                   messageId: (oldMessage as any).id,
                 },
               });
             }
+          } else if (isRevokeProtocolMessage) {
+            await this.sendDataWebhook(Events.MESSAGES_DELETE, { ...protocolMessage.key, status: 'DELETED' });
+
+            const oldMessage = await this.getMessage(protocolMessage.key, true);
+            if ((oldMessage as any)?.id) {
+              // Content is intentionally left untouched — a "deleted" message still
+              // matters for compliance/audit purposes even after the sender revokes it
+              // on WhatsApp; only its status changes.
+              await this.prismaRepository.message.update({
+                where: { id: (oldMessage as any).id },
+                data: { status: 'DELETED' },
+              });
+
+              if (this.configService.get<Database>('DATABASE').SAVE_DATA.MESSAGE_UPDATE) {
+                await this.prismaRepository.messageUpdate.create({
+                  data: {
+                    fromMe: protocolMessage.key.fromMe,
+                    keyId: protocolMessage.key.id,
+                    remoteJid: protocolMessage.key.remoteJid,
+                    status: 'DELETED',
+                    instanceId: this.instanceId,
+                    messageId: (oldMessage as any).id,
+                  },
+                });
+              }
+            }
           }
 
-          if ((type !== 'notify' && type !== 'append') || editedMessage || !received?.message) {
+          if (
+            (type !== 'notify' && type !== 'append') ||
+            isEditProtocolMessage ||
+            isRevokeProtocolMessage ||
+            !received?.message
+          ) {
             continue;
           }
 
