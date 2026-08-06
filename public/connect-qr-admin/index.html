@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerar link de conexão</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-title">
+      <h1>Gerar link de conexão</h1>
+      <span class="topbar-subtitle">Evolution API</span>
+    </div>
+    <div class="apikey-box">
+      <input id="apikey-input" type="password" placeholder="apikey global" autocomplete="off" />
+      <button id="apikey-save" class="btn btn-secondary">Carregar instâncias</button>
+    </div>
+  </header>
+
+  <main id="toast" class="toast hidden"></main>
+
+  <section class="content">
+    <p class="hint">
+      Clique em <strong>"Copiar link"</strong> ao lado da instância desejada e envie o link pra pessoa que vai escanear o QR Code.
+      O link dá acesso só àquela instância — não à apikey global.
+    </p>
+
+    <table class="data-table">
+      <thead>
+        <tr><th>Instância</th><th>Status</th><th>Número</th><th></th></tr>
+      </thead>
+      <tbody id="instances-tbody">
+        <tr class="empty-row"><td colspan="4">Informe a apikey global e clique em "Carregar instâncias".</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <script src="./app.js"></script>
+</body>
+</html>
