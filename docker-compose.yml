@@ -75,3 +75,5 @@ volumes:
   evolution_instances:
   postgres_data:
   redis_data:
+  minio_data:
+  whisper_data:
