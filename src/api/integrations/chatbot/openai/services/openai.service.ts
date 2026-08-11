@@ -719,6 +719,9 @@ export class OpenaiService extends BaseChatbotService<OpenaiBot, OpenaiSetting> 
     formData.append('file', audio, 'audio.ogg');
     formData.append('model', 'whisper-1');
     formData.append('language', lang);
+    // OpenAI's real API ignores this field, but self-hosted Whisper servers (faster-whisper-server
+    // and similar) expose it and some default to translating to English without it.
+    formData.append('task', 'transcribe');
 
     const apiKey = creds?.apiKey || this.configService.get<OpenaiConfig>('OPENAI').API_KEY_GLOBAL;
     const baseUrl = (creds?.baseUrl || 'https://api.openai.com').replace(/\/+$/, '');
