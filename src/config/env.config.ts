@@ -358,6 +358,15 @@ export type Audit = {
   AI_PROVIDERS: AuditAiProviders;
 };
 
+export type Retention = {
+  ENABLED: boolean;
+  CHAT_VISIBLE_DAYS: number;
+  ARCHIVE_AFTER_DAYS: number;
+  MEDIA_PURGE_AFTER_DAYS: number;
+  BACKUP_EXPIRE_AFTER_DAYS: number;
+  CRON: string;
+};
+
 export type CacheConf = { REDIS: CacheConfRedis; LOCAL: CacheConfLocal };
 export type Metrics = {
   ENABLED: boolean;
@@ -431,6 +440,7 @@ export interface Env {
   CACHE: CacheConf;
   S3?: S3;
   AUDIT: Audit;
+  RETENTION: Retention;
   AUTHENTICATION: Auth;
   METRICS: Metrics;
   TELEMETRY: Telemetry;
@@ -882,6 +892,14 @@ export class ConfigService {
           GEMINI_API_KEY_GLOBAL: process.env?.AUDIT_GEMINI_API_KEY_GLOBAL,
           CLAUDE_API_KEY_GLOBAL: process.env?.AUDIT_CLAUDE_API_KEY_GLOBAL,
         },
+      },
+      RETENTION: {
+        ENABLED: process.env?.RETENTION_ENABLED === 'true',
+        CHAT_VISIBLE_DAYS: Number.parseInt(process.env?.RETENTION_CHAT_VISIBLE_DAYS || '90'),
+        ARCHIVE_AFTER_DAYS: Number.parseInt(process.env?.RETENTION_ARCHIVE_AFTER_DAYS || '90'),
+        MEDIA_PURGE_AFTER_DAYS: Number.parseInt(process.env?.RETENTION_MEDIA_PURGE_AFTER_DAYS || '180'),
+        BACKUP_EXPIRE_AFTER_DAYS: Number.parseInt(process.env?.RETENTION_BACKUP_EXPIRE_AFTER_DAYS || '1825'),
+        CRON: process.env?.RETENTION_CRON || '0 3 * * *',
       },
       AUTHENTICATION: {
         API_KEY: {

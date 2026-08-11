@@ -30,7 +30,10 @@ const commonProperties: JSONSchema7['properties'] = {
   customStartDate: { type: 'string', format: 'date-time' },
   customEndDate: { type: 'string', format: 'date-time' },
   cronExpression: { type: 'string' },
-  lookbackDays: { type: 'integer', minimum: 1, maximum: 3650 },
+  // Kept in sync by hand with RETENTION.CHAT_VISIBLE_DAYS's default (see env.config.ts /
+  // auditPeriod.ts) — computeExecutionPeriod clamps to that value regardless, this max just
+  // keeps the API from advertising a window that would be silently clamped anyway.
+  lookbackDays: { type: 'integer', minimum: 1, maximum: 90 },
   selectedInstances: { type: 'array', items: { type: 'string' } },
   excludedJids: { type: 'array', items: { type: 'string' } },
   aiProvider: { type: 'string', enum: AUDIT_AI_PROVIDERS },

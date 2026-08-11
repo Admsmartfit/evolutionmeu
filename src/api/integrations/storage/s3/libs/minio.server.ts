@@ -136,4 +136,16 @@ const deleteFile = async (folder: string, fileName: string) => {
   }
 };
 
-export { BUCKET, deleteFile, getObjectUrl, uploadFile, uploadTempFile };
+const downloadFile = async (fileName: string): Promise<Buffer> => {
+  if (minioClient) {
+    const objectName = join('evolution-api', fileName);
+    const stream = await minioClient.getObject(bucketName, objectName);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk as Buffer);
+    }
+    return Buffer.concat(chunks);
+  }
+};
+
+export { BUCKET, deleteFile, downloadFile, getObjectUrl, uploadFile, uploadTempFile };

@@ -1,5 +1,5 @@
 import { CacheEngine } from '@cache/cacheengine';
-import { Audit, Chatwoot, configService, ProviderSession } from '@config/env.config';
+import { Audit, Chatwoot, configService, ProviderSession, Retention } from '@config/env.config';
 import { eventEmitter } from '@config/event.config';
 import { Logger } from '@config/logger.config';
 
@@ -13,6 +13,7 @@ import { ContactRoleMappingController } from './controllers/contactRoleMapping.c
 import { GroupController } from './controllers/group.controller';
 import { InstanceController } from './controllers/instance.controller';
 import { LabelController } from './controllers/label.controller';
+import { MessageRetentionController } from './controllers/messageRetention.controller';
 import { ProxyController } from './controllers/proxy.controller';
 import { SendMessageController } from './controllers/sendMessage.controller';
 import { SettingsController } from './controllers/settings.controller';
@@ -52,6 +53,8 @@ import { AuditReportService } from './services/auditReport.service';
 import { AuditSchedulerService } from './services/auditScheduler.service';
 import { CacheService } from './services/cache.service';
 import { ContactRoleMappingService } from './services/contactRoleMapping.service';
+import { MessageRetentionService } from './services/messageRetention.service';
+import { MessageRetentionSchedulerService } from './services/messageRetentionScheduler.service';
 import { WAMonitoringService } from './services/monitor.service';
 import { ProxyService } from './services/proxy.service';
 import { SettingsService } from './services/settings.service';
@@ -116,6 +119,22 @@ if (configService.get<Audit>('AUDIT').ENABLED) {
   auditSchedulerService.start().catch((error) => {
     logger.error(`Failed to start audit scheduler: ${(error as Error).message}`);
   });
+}
+
+const messageRetentionService = new MessageRetentionService(prismaRepository, configService);
+const messageRetentionSchedulerService = new MessageRetentionSchedulerService(
+  messageRetentionService,
+  configService.get<Retention>('RETENTION').CRON,
+);
+export const messageRetentionController = new MessageRetentionController(messageRetentionSchedulerService);
+
+if (configService.get<Retention>('RETENTION').ENABLED) {
+  try {
+    messageRetentionSchedulerService.start();
+    logger.info('Message retention scheduler started');
+  } catch (error) {
+    logger.error(`Failed to start message retention scheduler: ${(error as Error).message}`);
+  }
 }
 
 const s3Service = new S3Service(prismaRepository);

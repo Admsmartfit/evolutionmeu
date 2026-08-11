@@ -9,7 +9,7 @@ import { TypebotService } from '@api/integrations/chatbot/typebot/services/typeb
 import { PrismaRepository, Query } from '@api/repository/repository.service';
 import { eventManager, waMonitor } from '@api/server.module';
 import { Events, wa } from '@api/types/wa.types';
-import { Auth, Chatwoot, ConfigService, HttpServer, Proxy } from '@config/env.config';
+import { Auth, Chatwoot, ConfigService, HttpServer, Proxy, Retention } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 import { NotFoundException } from '@exceptions';
 import { Contact, Message, Prisma } from '@prisma/client';
@@ -605,15 +605,27 @@ export class ChannelStartupService {
       participants?: string;
     };
 
-    const timestampFilter = {};
-    if (query?.where?.messageTimestamp) {
-      if (query.where.messageTimestamp['gte'] && query.where.messageTimestamp['lte']) {
-        timestampFilter['messageTimestamp'] = {
-          gte: Math.floor(new Date(query.where.messageTimestamp['gte']).getTime() / 1000),
-          lte: Math.floor(new Date(query.where.messageTimestamp['lte']).getTime() / 1000),
-        };
-      }
-    }
+    // Messages older than RETENTION.CHAT_VISIBLE_DAYS are not guaranteed to still exist in
+    // this table (see MessageRetentionService) — enforce that floor here regardless of what
+    // the caller asked for, since this is the same endpoint the Manager's chat view hits.
+    const chatVisibleDays = this.configService.get<Retention>('RETENTION').CHAT_VISIBLE_DAYS;
+    const displayFloor = new Date();
+    displayFloor.setDate(displayFloor.getDate() - chatVisibleDays);
+
+    const requestedGte = query?.where?.messageTimestamp?.['gte']
+      ? new Date(query.where.messageTimestamp['gte'])
+      : undefined;
+    const requestedLte = query?.where?.messageTimestamp?.['lte']
+      ? new Date(query.where.messageTimestamp['lte'])
+      : undefined;
+    const effectiveGte = requestedGte && requestedGte > displayFloor ? requestedGte : displayFloor;
+
+    const timestampFilter = {
+      messageTimestamp: {
+        gte: Math.floor(effectiveGte.getTime() / 1000),
+        ...(requestedLte ? { lte: Math.floor(requestedLte.getTime() / 1000) } : {}),
+      },
+    };
 
     // Baileys protocol/placeholder messages (e.g. linked-device masking) carry no
     // user-visible content and have no renderer in the Manager UI, so they're hidden

@@ -178,6 +178,7 @@ model Message {
   session   IntegrationSession? @relation(fields: [sessionId], references: [id])
 
   @@index([instanceId])
+  @@index([instanceId, messageTimestamp])
 }
 
 model MessageUpdate {
@@ -407,6 +408,23 @@ model Media {
   messageId  String    @unique
   Instance   Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId String
+}
+
+// Cold-storage record of an archived-messages JSON export in MinIO. Intentionally has no
+// relation/FK to Instance — this data must outlive the instance it came from (retention
+// policy), unlike every other Instance-scoped model here which cascades on instance delete.
+model MessageBackupFile {
+  id            String    @id @default(cuid())
+  instanceId    String    @db.VarChar(100)
+  s3Key         String    @db.VarChar(500)
+  periodStart   DateTime  @db.Timestamp
+  periodEnd     DateTime  @db.Timestamp
+  messageCount  Int       @db.Integer
+  mediaPurgedAt DateTime? @db.Timestamp
+  createdAt     DateTime  @default(now()) @db.Timestamp
+
+  @@index([instanceId])
+  @@index([periodEnd, mediaPurgedAt])
 }
 
 model OpenaiCreds {
