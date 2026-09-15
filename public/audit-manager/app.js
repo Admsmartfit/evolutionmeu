@@ -360,7 +360,7 @@
     render(list) {
       const tbody = document.getElementById('configs-tbody');
       if (!list || list.length === 0) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Nenhuma configuração cadastrada.</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Nenhuma configuração cadastrada.</td></tr>';
         return;
       }
       tbody.innerHTML = list
@@ -368,6 +368,7 @@
           (c) => `
         <tr>
           <td>${escapeHtml(c.name || c.id)}</td>
+          <td>${c.reportType === 'DIRECTIVES' ? 'Diretivas dos Sócios' : 'Compliance Jurídico'}</td>
           <td>${escapeHtml(c.periodicity)}</td>
           <td><code>${escapeHtml(c.cronExpression || '—')}</code></td>
           <td>${escapeHtml(c.aiProvider)} / ${escapeHtml(c.aiModel)}</td>
@@ -402,6 +403,7 @@
       document.getElementById('config-id').value = config.id;
       document.getElementById('config-name').value = config.name || '';
       document.getElementById('config-enabled').checked = Boolean(config.enabled);
+      document.getElementById('config-report-type').value = config.reportType || 'COMPLIANCE';
       document.getElementById('config-periodicity').value = config.periodicity;
       document.getElementById('config-custom-start').value = config.customStartDate ? config.customStartDate.slice(0, 16) : '';
       document.getElementById('config-custom-end').value = config.customEndDate ? config.customEndDate.slice(0, 16) : '';
@@ -450,6 +452,7 @@
       const payload = {
         name: document.getElementById('config-name').value.trim() || undefined,
         enabled: document.getElementById('config-enabled').checked,
+        reportType: document.getElementById('config-report-type').value,
         periodicity: document.getElementById('config-periodicity').value,
         cronExpression: document.getElementById('config-cron').value.trim() || undefined,
         lookbackDays: numberOrUndefined('config-lookback'),
@@ -692,7 +695,7 @@
     render(list) {
       const tbody = document.getElementById('reports-tbody');
       if (!list || list.length === 0) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Nenhum relatório encontrado.</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Nenhum relatório encontrado.</td></tr>';
         return;
       }
       tbody.innerHTML = list
@@ -700,9 +703,10 @@
           (r) => `
         <tr>
           <td>${formatDate(r.executionDate)}</td>
+          <td>${r.reportType === 'DIRECTIVES' ? 'Diretivas dos Sócios' : 'Compliance Jurídico'}</td>
           <td>${formatDate(r.periodStart)} — ${formatDate(r.periodEnd)}</td>
           <td>${escapeHtml((r.instancesAudited || []).join(', ') || 'Todas')}</td>
-          <td>${this.riskBadge(r.overallRiskLevel)}</td>
+          <td>${r.reportType === 'DIRECTIVES' ? '—' : this.riskBadge(r.overallRiskLevel)}</td>
           <td>${this.statusBadge(r.status)}</td>
           <td>
             <button class="btn btn-secondary btn-sm" data-detail="${r.id}">Detalhes</button>
@@ -724,59 +728,100 @@
     async showDetail(id) {
       try {
         const report = await apiFetch('/audit/reports/' + id);
-        const summary = report.executiveSummary || {};
-        const occurrences = report.occurrencesDetails || [];
-        const matrix = report.riskMatrix || {};
 
-        const occurrencesHtml = occurrences.length
-          ? occurrences
-              .map(
-                (o) => `
-            <div class="occurrence-card sev-${(o.severity || '').toLowerCase()}">
-              <p><strong>${escapeHtml(o.category)}</strong> — ${this.riskBadge(o.severity)}</p>
-              <p><strong>Interlocutores:</strong> ${escapeHtml(o.interlocutors)}</p>
-              <p><strong>Evidência:</strong> "${escapeHtml(o.evidence_quote)}"</p>
-              <p><strong>Parecer jurídico:</strong> ${escapeHtml(o.legal_fundamentation)}</p>
-              <p><strong>Recomendação:</strong> ${escapeHtml(o.recommendation)}</p>
-            </div>`,
-              )
-              .join('')
-          : '<p class="hint">Nenhuma ocorrência de risco identificada.</p>';
-
-        document.getElementById('report-modal-body').innerHTML = `
-          <h2>Relatório — ${formatDate(report.executionDate)}</h2>
-          <p class="hint">Período: ${formatDate(report.periodStart)} até ${formatDate(report.periodEnd)}</p>
-          <p>${this.statusBadge(report.status)} ${this.riskBadge(report.overallRiskLevel)}</p>
-          ${report.errorMessage ? `<p class="hint">Erro: ${escapeHtml(report.errorMessage)}</p>` : ''}
-
-          <div class="summary-grid">
-            <div><div class="label">Tom da comunicação</div><div class="value">${escapeHtml(summary.communication_tone || '—')}</div></div>
-            <div><div class="label">Alinhamento sócio ↔ gerência</div><div class="value">${escapeHtml(summary.management_alignment_score || '—')}</div></div>
-          </div>
-
-          <h3>Matriz de risco</h3>
-          <div class="summary-grid">
-            <div><div class="label">Baixo</div><div class="value">${matrix.LOW ?? 0}</div></div>
-            <div><div class="label">Médio</div><div class="value">${matrix.MEDIUM ?? 0}</div></div>
-            <div><div class="label">Alto</div><div class="value">${matrix.HIGH ?? 0}</div></div>
-            <div><div class="label">Crítico</div><div class="value">${matrix.CRITICAL ?? 0}</div></div>
-          </div>
-
-          <h3>Decisões e gargalos</h3>
-          <p><strong>Principais decisões:</strong> ${(summary.key_decisions || []).map(escapeHtml).join('; ') || '—'}</p>
-          <p><strong>Gargalos operacionais:</strong> ${(summary.operational_bottlenecks || []).map(escapeHtml).join('; ') || '—'}</p>
-
-          <h3>Ocorrências (${occurrences.length})</h3>
-          ${occurrencesHtml}
-
-          <div class="form-actions">
-            <a class="btn btn-primary" href="/audit/reports/${report.id}/pdf" target="_blank" rel="noopener">Abrir PDF</a>
-          </div>
-        `;
+        document.getElementById('report-modal-body').innerHTML =
+          report.reportType === 'DIRECTIVES' ? this.renderDirectivesDetail(report) : this.renderComplianceDetail(report);
         document.getElementById('report-modal').classList.remove('hidden');
       } catch (err) {
         handleError(err);
       }
+    },
+
+    renderComplianceDetail(report) {
+      const summary = report.executiveSummary || {};
+      const occurrences = report.occurrencesDetails || [];
+      const matrix = report.riskMatrix || {};
+
+      const occurrencesHtml = occurrences.length
+        ? occurrences
+            .map(
+              (o) => `
+          <div class="occurrence-card sev-${(o.severity || '').toLowerCase()}">
+            <p><strong>${escapeHtml(o.category)}</strong> — ${this.riskBadge(o.severity)}</p>
+            <p><strong>Interlocutores:</strong> ${escapeHtml(o.interlocutors)}</p>
+            <p><strong>Evidência:</strong> "${escapeHtml(o.evidence_quote)}"</p>
+            ${
+              o.severity === 'LOW'
+                ? ''
+                : `<p><strong>Parecer jurídico:</strong> ${escapeHtml(o.legal_fundamentation)}</p>
+            <p><strong>Recomendação:</strong> ${escapeHtml(o.recommendation)}</p>`
+            }
+          </div>`,
+            )
+            .join('')
+        : '<p class="hint">Nenhuma ocorrência de risco identificada.</p>';
+
+      return `
+        <h2>Relatório de Compliance — ${formatDate(report.executionDate)}</h2>
+        <p class="hint">Período: ${formatDate(report.periodStart)} até ${formatDate(report.periodEnd)}</p>
+        <p>${this.statusBadge(report.status)} ${this.riskBadge(report.overallRiskLevel)}</p>
+        ${report.errorMessage ? `<p class="hint">Erro: ${escapeHtml(report.errorMessage)}</p>` : ''}
+
+        <div class="summary-grid">
+          <div><div class="label">Tom da comunicação</div><div class="value">${escapeHtml(summary.communication_tone || '—')}</div></div>
+          <div><div class="label">Alinhamento sócio ↔ gerência</div><div class="value">${escapeHtml(summary.management_alignment_score || '—')}</div></div>
+        </div>
+
+        <h3>Matriz de risco</h3>
+        <div class="summary-grid">
+          <div><div class="label">Baixo</div><div class="value">${matrix.LOW ?? 0}</div></div>
+          <div><div class="label">Médio</div><div class="value">${matrix.MEDIUM ?? 0}</div></div>
+          <div><div class="label">Alto</div><div class="value">${matrix.HIGH ?? 0}</div></div>
+          <div><div class="label">Crítico</div><div class="value">${matrix.CRITICAL ?? 0}</div></div>
+        </div>
+
+        <h3>Decisões e gargalos</h3>
+        <p><strong>Principais decisões:</strong> ${(summary.key_decisions || []).map(escapeHtml).join('; ') || '—'}</p>
+        <p><strong>Gargalos operacionais:</strong> ${(summary.operational_bottlenecks || []).map(escapeHtml).join('; ') || '—'}</p>
+
+        <h3>Ocorrências (${occurrences.length})</h3>
+        ${occurrencesHtml}
+
+        <div class="form-actions">
+          <a class="btn btn-primary" href="/audit/reports/${report.id}/pdf" target="_blank" rel="noopener">Abrir PDF</a>
+        </div>
+      `;
+    },
+
+    renderDirectivesDetail(report) {
+      const directives = report.occurrencesDetails || [];
+
+      const directivesHtml = directives.length
+        ? directives
+            .map(
+              (d) => `
+          <div class="occurrence-card">
+            <p><strong>De:</strong> ${escapeHtml(d.issued_by)} &nbsp;→&nbsp; <strong>Para:</strong> ${escapeHtml(d.issued_to)}</p>
+            <p><strong>Diretiva:</strong> ${escapeHtml(d.directive)}</p>
+            <p><strong>Contexto:</strong> "${escapeHtml(d.context_quote)}"</p>
+          </div>`,
+            )
+            .join('')
+        : '<p class="hint">Nenhuma diretiva de sócio identificada.</p>';
+
+      return `
+        <h2>Relatório de Diretivas dos Sócios — ${formatDate(report.executionDate)}</h2>
+        <p class="hint">Período: ${formatDate(report.periodStart)} até ${formatDate(report.periodEnd)}</p>
+        <p>${this.statusBadge(report.status)}</p>
+        ${report.errorMessage ? `<p class="hint">Erro: ${escapeHtml(report.errorMessage)}</p>` : ''}
+
+        <h3>Diretivas (${directives.length})</h3>
+        ${directivesHtml}
+
+        <div class="form-actions">
+          <a class="btn btn-primary" href="/audit/reports/${report.id}/pdf" target="_blank" rel="noopener">Abrir PDF</a>
+        </div>
+      `;
     },
   };
 

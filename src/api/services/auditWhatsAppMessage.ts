@@ -1,4 +1,4 @@
-import { AuditAiExecutiveSummary, AuditAiOccurrence } from './baseAuditAiProvider.service';
+import { AuditAiDirective, AuditAiExecutiveSummary, AuditAiOccurrence } from './baseAuditAiProvider.service';
 
 export type AuditWhatsAppMessageInput = {
   periodStart: Date;
@@ -47,6 +47,32 @@ export function buildAuditWhatsAppMessage(input: AuditWhatsAppMessageInput): str
     criticalLine,
     '',
     '📎 O relatório executivo completo em PDF contendo as evidências e análises jurídicas está anexado abaixo.',
+  ];
+
+  return lines.join('\n');
+}
+
+export type AuditDirectivesWhatsAppMessageInput = {
+  periodStart: Date;
+  periodEnd: Date;
+  instancesAudited: string[] | null;
+  directives: AuditAiDirective[];
+};
+
+/** Builds the WhatsApp notification text for a DIRECTIVES report — no risk scoring, just a count and a pointer to the PDF for context. */
+export function buildAuditDirectivesWhatsAppMessage(input: AuditDirectivesWhatsAppMessageInput): string {
+  const instances =
+    !input.instancesAudited || input.instancesAudited.length === 0 ? 'Todas' : input.instancesAudited.join(', ');
+
+  const lines = [
+    '📋 Diretivas dos Sócios',
+    '',
+    `Período: ${formatDate(input.periodStart)} a ${formatDate(input.periodEnd)}`,
+    `Instâncias Auditadas: ${instances}`,
+    '',
+    `• Diretivas identificadas: ${input.directives.length}`,
+    '',
+    '📎 O detalhamento de cada diretiva, com o contexto da conversa, está no PDF anexado abaixo.',
   ];
 
   return lines.join('\n');

@@ -1,18 +1,25 @@
 import PDFDocument from 'pdfkit';
 
-import { AuditAiExecutiveSummary, AuditAiOccurrence } from './baseAuditAiProvider.service';
+import { AuditAiDirective, AuditAiExecutiveSummary, AuditAiOccurrence } from './baseAuditAiProvider.service';
 
-export type AuditReportPdfInput = {
+export type AuditReportPdfBase = {
   id: string;
   executionDate: Date;
   periodStart: Date;
   periodEnd: Date;
   instancesAudited: string[] | null;
+  companyName?: string;
+};
+
+export type AuditReportPdfInput = AuditReportPdfBase & {
   overallRiskLevel: string | null;
   riskMatrix: Record<string, number> | null;
   executiveSummary: AuditAiExecutiveSummary | null;
   occurrencesDetails: AuditAiOccurrence[] | null;
-  companyName?: string;
+};
+
+export type AuditDirectivesPdfInput = AuditReportPdfBase & {
+  directives: AuditAiDirective[];
 };
 
 const RISK_ORDER = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
@@ -59,11 +66,33 @@ export class AuditReportPdfService {
       doc.on('error', reject);
 
       try {
-        this.renderHeader(doc, report);
+        this.renderHeader(doc, report, 'RELATÓRIO DE AUDITORIA & RISCO');
         this.renderPeriodBar(doc, report);
         this.renderExecutiveSummary(doc, report);
         this.renderRiskMatrix(doc, report);
         this.renderOccurrences(doc, report);
+        this.renderFooterOnAllPages(doc);
+        doc.end();
+      } catch (error) {
+        reject(error as Error);
+      }
+    });
+  }
+
+  /** Same layout skeleton (header/period bar/footer), but the body lists sócio directives with their conversation context instead of a legal-risk analysis. */
+  public generateDirectives(report: AuditDirectivesPdfInput): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      try {
+        this.renderHeader(doc, report, 'RELATÓRIO DE DIRETIVAS DOS SÓCIOS');
+        this.renderPeriodBar(doc, report);
+        this.renderDirectives(doc, report.directives);
         this.renderFooterOnAllPages(doc);
         doc.end();
       } catch (error) {
@@ -103,7 +132,7 @@ export class AuditReportPdfService {
     }
   }
 
-  private renderHeader(doc: PDFKit.PDFDocument, report: AuditReportPdfInput): void {
+  private renderHeader(doc: PDFKit.PDFDocument, report: AuditReportPdfBase, title: string): void {
     const left = doc.page.margins.left;
     const width = this.contentWidth(doc);
 
@@ -118,7 +147,7 @@ export class AuditReportPdfService {
         .font('Helvetica-Bold')
         .fontSize(15)
         .fillColor('#000000')
-        .text('RELATÓRIO DE AUDITORIA & RISCO', left, doc.y - 12, { width: width - 8, align: 'right' });
+        .text(title, left, doc.y - 12, { width: width - 8, align: 'right' });
 
       doc
         .font('Helvetica')
@@ -128,7 +157,7 @@ export class AuditReportPdfService {
     });
   }
 
-  private renderPeriodBar(doc: PDFKit.PDFDocument, report: AuditReportPdfInput): void {
+  private renderPeriodBar(doc: PDFKit.PDFDocument, report: AuditReportPdfBase): void {
     const left = doc.page.margins.left;
     const instances =
       !report.instancesAudited || report.instancesAudited.length === 0 ? 'Todas' : report.instancesAudited.join(', ');
@@ -303,19 +332,84 @@ export class AuditReportPdfService {
           .font('Helvetica-Oblique')
           .text(`"${occurrence.evidence_quote || ''}"`);
 
+        // Risco baixo não precisa de parecer jurídico nem recomendação — esses campos só
+        // agregam valor a partir de risco médio pra cima, onde uma ação de fato é esperada.
+        if (occurrence.severity !== 'LOW') {
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(9)
+            .text('Parecer Jurídico: ', left + 4, doc.y, { continued: true, width: width - 8 })
+            .font('Helvetica')
+            .text(occurrence.legal_fundamentation || 'N/A');
+
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(9)
+            .text('Recomendação: ', left + 4, doc.y, { continued: true, width: width - 8 })
+            .font('Helvetica')
+            .text(occurrence.recommendation || 'N/A');
+        }
+      });
+    });
+  }
+
+  private renderDirectives(doc: PDFKit.PDFDocument, directives: AuditAiDirective[]): void {
+    const left = doc.page.margins.left;
+    const width = this.contentWidth(doc);
+
+    this.ensureSpace(doc, 60);
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#000000').text('DIRETIVAS IDENTIFICADAS', left, doc.y);
+    doc.moveDown(0.5);
+
+    if (directives.length === 0) {
+      doc
+        .font('Helvetica')
+        .fontSize(9)
+        .fillColor('#555555')
+        .text('Nenhuma diretiva de sócio identificada no período analisado.', left, doc.y);
+      doc.moveDown(1);
+      return;
+    }
+
+    directives.forEach((directive, index) => {
+      this.ensureSpace(doc, 110);
+
+      this.box(doc, () => {
         doc
           .font('Helvetica-Bold')
-          .fontSize(9)
-          .text('Parecer Jurídico: ', left + 4, doc.y, { continued: true, width: width - 8 })
-          .font('Helvetica')
-          .text(occurrence.legal_fundamentation || 'N/A');
+          .fontSize(10)
+          .fillColor('#000000')
+          .text(`Diretiva #${String(index + 1).padStart(2, '0')}`, left + 4, doc.y, { width: width - 8 });
+        doc.moveDown(0.3);
 
         doc
           .font('Helvetica-Bold')
           .fontSize(9)
-          .text('Recomendação: ', left + 4, doc.y, { continued: true, width: width - 8 })
+          .text('De: ', left + 4, doc.y, { continued: true, width: width - 8 })
           .font('Helvetica')
-          .text(occurrence.recommendation || 'N/A');
+          .text(directive.issued_by || 'N/A');
+
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(9)
+          .text('Para: ', left + 4, doc.y, { continued: true, width: width - 8 })
+          .font('Helvetica')
+          .text(directive.issued_to || 'N/A');
+
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(9)
+          .text('Diretiva: ', left + 4, doc.y, { continued: true, width: width - 8 })
+          .font('Helvetica')
+          .text(directive.directive || 'N/A');
+
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(9)
+          .text('Contexto: ', left + 4, doc.y, { continued: true, width: width - 8 })
+          .font('Helvetica-Oblique')
+          .text(`"${directive.context_quote || ''}"`);
       });
     });
   }

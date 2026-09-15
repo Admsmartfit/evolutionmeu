@@ -1,4 +1,10 @@
-import { AuditAiExecutiveSummary, AuditAiOccurrence, AuditAiResult } from './baseAuditAiProvider.service';
+import {
+  AuditAiDirective,
+  AuditAiDirectivesResult,
+  AuditAiExecutiveSummary,
+  AuditAiOccurrence,
+  AuditAiResult,
+} from './baseAuditAiProvider.service';
 
 const RISK_PRIORITY = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 const TONE_PRIORITY = ['CORDIAL', 'NEUTRO', 'TENSO', 'CRITICO'];
@@ -104,22 +110,27 @@ export function aggregateAuditResults(results: AuditAiResult[]): AggregatedAudit
 }
 
 /**
- * Swaps every anonymized placeholder that has no corporate role (e.g. "[OUTRO_B]") for the
- * real phone number behind it, across every text field the AI could have echoed it into.
- * Placeholders with a known role (SOCIO/GERENTE/ADMINISTRATIVO) are left alone — RF07.2
- * anonymization still applies to identified staff. `unidentifiedLabels` comes from
- * AuditMessageCollectorService.collect(); this only ever narrows what's already anonymized,
- * it never re-adds PII the AI itself introduced.
+ * Placeholders with no corporate role (e.g. "[OUTRO_B]") come from
+ * AuditMessageCollectorService.collect()'s `unidentifiedLabels` map; this builds the
+ * text -> text function that swaps each for the real phone number behind it. Placeholders
+ * with a known role (SOCIO/GERENTE/ADMINISTRATIVO) are left alone — RF07.2 anonymization
+ * still applies to identified staff. This only ever narrows what's already anonymized, it
+ * never re-adds PII the AI itself introduced.
  */
+function buildRevealer(unidentifiedLabels: Record<string, string>): (text: string) => string {
+  const entries = Object.entries(unidentifiedLabels);
+
+  return (text: string): string =>
+    entries.reduce((acc, [label, phoneNumber]) => acc.split(label).join(`+${phoneNumber}`), text);
+}
+
 export function revealUnidentifiedInterlocutors(
   result: AggregatedAuditResult,
   unidentifiedLabels: Record<string, string>,
 ): AggregatedAuditResult {
-  const entries = Object.entries(unidentifiedLabels);
-  if (entries.length === 0) return result;
+  if (Object.keys(unidentifiedLabels).length === 0) return result;
 
-  const reveal = (text: string): string =>
-    entries.reduce((acc, [label, phoneNumber]) => acc.split(label).join(`+${phoneNumber}`), text);
+  const reveal = buildRevealer(unidentifiedLabels);
 
   return {
     ...result,
@@ -136,4 +147,27 @@ export function revealUnidentifiedInterlocutors(
       recommendation: reveal(occurrence.recommendation),
     })),
   };
+}
+
+/** Same idea as aggregateAuditResults, but for DIRECTIVES reports: just flatten, no risk/tone scoring. */
+export function aggregateDirectives(results: AuditAiDirectivesResult[]): AuditAiDirective[] {
+  return results.flatMap((result) => result.directives || []).filter((directive) => directive?.directive);
+}
+
+/** Same idea as revealUnidentifiedInterlocutors, but for the DIRECTIVES report's fields. */
+export function revealUnidentifiedInDirectives(
+  directives: AuditAiDirective[],
+  unidentifiedLabels: Record<string, string>,
+): AuditAiDirective[] {
+  if (Object.keys(unidentifiedLabels).length === 0) return directives;
+
+  const reveal = buildRevealer(unidentifiedLabels);
+
+  return directives.map((directive) => ({
+    ...directive,
+    issued_by: reveal(directive.issued_by),
+    issued_to: reveal(directive.issued_to),
+    directive: reveal(directive.directive),
+    context_quote: reveal(directive.context_quote),
+  }));
 }

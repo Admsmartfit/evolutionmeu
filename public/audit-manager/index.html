@@ -95,6 +95,13 @@
           <input type="hidden" id="config-id" />
           <label>Nome <input id="config-name" placeholder="Auditoria Semanal" /></label>
           <label class="checkbox-label"><input type="checkbox" id="config-enabled" checked /> Habilitado</label>
+          <label>Tipo de relatório
+            <select id="config-report-type">
+              <option value="COMPLIANCE">Compliance Jurídico (risco, ocorrências, recomendações)</option>
+              <option value="DIRECTIVES">Diretivas dos Sócios (ordens/instruções, com contexto — sem análise de risco)</option>
+            </select>
+            <span class="hint">Compliance Jurídico foca em risco/assédio/hostilidade com parecer jurídico. Diretivas dos Sócios extrai apenas ordens e instruções dadas por sócios, com o trecho da conversa que dá contexto.</span>
+          </label>
           <label>Periodicidade
             <select id="config-periodicity" required>
               <option value="DAILY">Diária</option>
@@ -208,7 +215,7 @@
         <h2>Configurações cadastradas</h2>
         <table class="data-table">
           <thead>
-            <tr><th>Nome</th><th>Periodicidade</th><th>Cron</th><th>Provedor</th><th>Chave</th><th>Envio WhatsApp</th><th>Status</th><th></th></tr>
+            <tr><th>Nome</th><th>Tipo</th><th>Periodicidade</th><th>Cron</th><th>Provedor</th><th>Chave</th><th>Envio WhatsApp</th><th>Status</th><th></th></tr>
           </thead>
           <tbody id="configs-tbody"></tbody>
         </table>
@@ -279,7 +286,7 @@
       </div>
       <table class="data-table">
         <thead>
-          <tr><th>Execução</th><th>Período</th><th>Instâncias</th><th>Risco</th><th>Status</th><th></th></tr>
+          <tr><th>Execução</th><th>Tipo</th><th>Período</th><th>Instâncias</th><th>Risco</th><th>Status</th><th></th></tr>
         </thead>
         <tbody id="reports-tbody"></tbody>
       </table>

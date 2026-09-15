@@ -1,6 +1,7 @@
 export class AuditConfigDto {
   name?: string;
   enabled?: boolean;
+  reportType?: string;
   periodicity: string;
   customStartDate?: string;
   customEndDate?: string;
@@ -21,6 +22,7 @@ export class AuditConfigDto {
 export class AuditConfigUpdateDto {
   name?: string;
   enabled?: boolean;
+  reportType?: string;
   periodicity?: string;
   customStartDate?: string;
   customEndDate?: string;

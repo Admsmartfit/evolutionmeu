@@ -3,6 +3,7 @@ import { v4 } from 'uuid';
 
 export const AUDIT_PERIODICITIES = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY', 'CUSTOM'];
 export const AUDIT_AI_PROVIDERS = ['GEMINI', 'CLAUDE'];
+export const AUDIT_REPORT_TYPES = ['COMPLIANCE', 'DIRECTIVES'];
 
 const isNotEmpty = (...propertyNames: string[]): JSONSchema7 => {
   const properties = {};
@@ -26,6 +27,10 @@ const isNotEmpty = (...propertyNames: string[]): JSONSchema7 => {
 const commonProperties: JSONSchema7['properties'] = {
   name: { type: 'string' },
   enabled: { type: 'boolean' },
+  // COMPLIANCE: legal-risk audit with severity/recommendations. DIRECTIVES: extracts only
+  // orders/instructions issued by SOCIO-role interlocutors, with conversation context — no
+  // risk scoring, no legal fundamentation, no recommendations.
+  reportType: { type: 'string', enum: AUDIT_REPORT_TYPES },
   periodicity: { type: 'string', enum: AUDIT_PERIODICITIES },
   customStartDate: { type: 'string', format: 'date-time' },
   customEndDate: { type: 'string', format: 'date-time' },

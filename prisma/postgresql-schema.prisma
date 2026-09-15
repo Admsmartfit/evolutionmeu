@@ -789,6 +789,7 @@ model AuditConfig {
   id                String        @id @default(cuid())
   name              String?       @db.VarChar(255)
   enabled           Boolean       @default(true) @db.Boolean
+  reportType        String        @default("COMPLIANCE") @db.VarChar(20) // "COMPLIANCE" (risco jurídico) ou "DIRECTIVES" (diretivas dos sócios)
   periodicity       String        @db.VarChar(20) // "WEEKLY", "MONTHLY", "YEARLY", "CUSTOM"
   customStartDate   DateTime?     @db.Timestamp
   customEndDate     DateTime?     @db.Timestamp
@@ -845,14 +846,15 @@ model AuditReport {
   id                 String       @id @default(cuid())
   AuditConfig        AuditConfig? @relation(fields: [auditConfigId], references: [id], onDelete: SetNull)
   auditConfigId      String?
+  reportType         String       @default("COMPLIANCE") @db.VarChar(20) // copiado do AuditConfig na criação, para o relatório manter seu tipo mesmo se a regra mudar depois
   executionDate      DateTime     @default(now()) @db.Timestamp
   periodStart        DateTime     @db.Timestamp
   periodEnd          DateTime     @db.Timestamp
   instancesAudited   Json?        @db.JsonB
-  overallRiskLevel   String?      @db.VarChar(20) // "LOW", "MEDIUM", "HIGH", "CRITICAL"
-  riskMatrix         Json?        @db.JsonB // { LOW: 840, MEDIUM: 5, HIGH: 2, CRITICAL: 1 } - conversas por nivel de risco
-  executiveSummary   Json?        @db.JsonB
-  occurrencesDetails Json?        @db.JsonB
+  overallRiskLevel   String?      @db.VarChar(20) // "LOW", "MEDIUM", "HIGH", "CRITICAL" — apenas relatórios COMPLIANCE
+  riskMatrix         Json?        @db.JsonB // { LOW: 840, MEDIUM: 5, HIGH: 2, CRITICAL: 1 } - apenas relatórios COMPLIANCE
+  executiveSummary   Json?        @db.JsonB // apenas relatórios COMPLIANCE
+  occurrencesDetails Json?        @db.JsonB // COMPLIANCE: AuditAiOccurrence[]; DIRECTIVES: AuditAiDirective[]
   pdfStorageUrl      String?      @db.VarChar(500)
   status             String       @default("PROCESSING") @db.VarChar(30) // "PROCESSING", "COMPLETED", "FAILED"
   errorMessage       String?      @db.Text

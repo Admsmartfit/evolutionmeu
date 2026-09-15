@@ -4,7 +4,7 @@ import { Audit, configService } from '@config/env.config';
 import { BadRequestException, NotFoundException } from '@exceptions';
 import { decrypt, encrypt } from '@utils/crypto';
 import { normalizePhoneNumber } from '@utils/phoneNumber';
-import { AUDIT_AI_PROVIDERS, AUDIT_PERIODICITIES } from '@validate/auditConfig.schema';
+import { AUDIT_AI_PROVIDERS, AUDIT_PERIODICITIES, AUDIT_REPORT_TYPES } from '@validate/auditConfig.schema';
 import cron from 'node-cron';
 
 import { computeExecutionPeriod } from './auditPeriod';
@@ -69,6 +69,16 @@ export class AuditConfigService {
     }
   }
 
+  private validateReportType(reportType?: string) {
+    if (!reportType) return;
+
+    if (!AUDIT_REPORT_TYPES.includes(reportType)) {
+      throw new BadRequestException(
+        `Invalid reportType: "${reportType}". Expected one of: ${AUDIT_REPORT_TYPES.join(', ')}`,
+      );
+    }
+  }
+
   private async validateSelectedInstances(selectedInstances?: string[]) {
     if (!selectedInstances || selectedInstances.length === 0) return;
     if (selectedInstances.length === 1 && selectedInstances[0] === 'ALL') return;
@@ -112,6 +122,7 @@ export class AuditConfigService {
     this.validatePeriodicity(data);
     this.validateCronExpression(data.cronExpression);
     this.validateAiProvider(data.aiProvider);
+    this.validateReportType(data.reportType);
     await this.validateSelectedInstances(data.selectedInstances);
     await this.validateSenderInstance(data.senderInstanceName);
 
@@ -122,6 +133,7 @@ export class AuditConfigService {
       data: {
         name: data.name,
         enabled: data.enabled ?? true,
+        reportType: data.reportType || 'COMPLIANCE',
         periodicity: data.periodicity,
         customStartDate: data.customStartDate ? new Date(data.customStartDate) : undefined,
         customEndDate: data.customEndDate ? new Date(data.customEndDate) : undefined,
@@ -155,6 +167,7 @@ export class AuditConfigService {
     });
     this.validateCronExpression(data.cronExpression);
     this.validateAiProvider(data.aiProvider);
+    this.validateReportType(data.reportType);
     await this.validateSelectedInstances(data.selectedInstances);
     await this.validateSenderInstance(data.senderInstanceName);
 
@@ -166,6 +179,7 @@ export class AuditConfigService {
       data: {
         name: data.name,
         enabled: data.enabled,
+        reportType: data.reportType,
         periodicity: data.periodicity,
         customStartDate: data.customStartDate ? new Date(data.customStartDate) : undefined,
         customEndDate: data.customEndDate ? new Date(data.customEndDate) : undefined,

@@ -3,11 +3,12 @@ import { PrismaRepository } from '@api/repository/repository.service';
 import { NotFoundException } from '@exceptions';
 
 import { AuditReportPdfService } from './auditReportPdf.service';
-import { AuditAiExecutiveSummary, AuditAiOccurrence } from './baseAuditAiProvider.service';
+import { AuditAiDirective, AuditAiExecutiveSummary, AuditAiOccurrence } from './baseAuditAiProvider.service';
 
 const LIST_SELECT = {
   id: true,
   auditConfigId: true,
+  reportType: true,
   executionDate: true,
   periodStart: true,
   periodEnd: true,
@@ -65,6 +66,17 @@ export class AuditReportService {
 
   public async getPdfBuffer(reportId: string): Promise<Buffer> {
     const report = await this.findById(reportId);
+
+    if (report.reportType === 'DIRECTIVES') {
+      return this.pdfService.generateDirectives({
+        id: report.id,
+        executionDate: report.executionDate,
+        periodStart: report.periodStart,
+        periodEnd: report.periodEnd,
+        instancesAudited: report.instancesAudited as string[] | null,
+        directives: (report.occurrencesDetails as AuditAiDirective[] | null) || [],
+      });
+    }
 
     return this.pdfService.generate({
       id: report.id,

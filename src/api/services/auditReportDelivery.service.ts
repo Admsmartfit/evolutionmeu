@@ -1,7 +1,6 @@
 import { Logger } from '@config/logger.config';
 import { getErrorMessage } from '@utils/getErrorMessage';
 
-import { AuditWhatsAppMessageInput, buildAuditWhatsAppMessage } from './auditWhatsAppMessage';
 import { WAMonitoringService } from './monitor.service';
 
 // WhatsApp caps media captions around 1024 characters; stay safely under that.
@@ -13,11 +12,12 @@ function truncateCaption(text: string): string {
   return text.slice(0, MAX_CAPTION_LENGTH - 40) + '\n\n[...] Relatório completo no PDF anexo.';
 }
 
-export type AuditReportDeliveryParams = AuditWhatsAppMessageInput & {
+export type AuditReportDeliveryParams = {
   reportId: string;
   senderInstanceName: string | null;
   recipientPhoneNumber: string | null;
-  overallRiskLevel: string | null;
+  caption: string;
+  fileNamePrefix: string;
   pdfBuffer: Buffer;
 };
 
@@ -28,13 +28,14 @@ export type AuditReportDeliveryResult = {
 };
 
 /**
- * Sends the PDF report as a single WhatsApp document message, with the executive summary
- * (RF08.3, PRD section 8.1) as its caption, through the AuditConfig's own senderInstanceName
- * to its own recipientPhoneNumber — and ONLY those. Both come from the audit rule itself, set
- * once by an admin with the global API key; delivery never falls back to guessing an instance
- * (e.g. "whichever audited instance happens to be first") or to a shared/editable recipient
- * list, since either would let a report reach a number or leave through an instance nobody
- * explicitly approved for it. If either field is unset, delivery is skipped — never inferred.
+ * Sends the PDF report as a single WhatsApp document message, through the AuditConfig's own
+ * senderInstanceName to its own recipientPhoneNumber — and ONLY those. Both come from the audit
+ * rule itself, set once by an admin with the global API key; delivery never falls back to
+ * guessing an instance (e.g. "whichever audited instance happens to be first") or to a
+ * shared/editable recipient list, since either would let a report reach a number or leave
+ * through an instance nobody explicitly approved for it. If either field is unset, delivery is
+ * skipped — never inferred. The caption text is built by the caller (report-type-specific), this
+ * service only knows how to get a PDF to the configured destination.
  */
 export class AuditReportDeliveryService {
   constructor(private readonly waMonitor: WAMonitoringService) {}
@@ -56,9 +57,9 @@ export class AuditReportDeliveryService {
       return { sent: false, skippedReason: reason };
     }
 
-    const caption = truncateCaption(buildAuditWhatsAppMessage(params));
+    const caption = truncateCaption(params.caption);
     const base64Pdf = params.pdfBuffer.toString('base64');
-    const fileName = `auditoria-compliance-${params.reportId}.pdf`;
+    const fileName = `${params.fileNamePrefix}-${params.reportId}.pdf`;
 
     try {
       await instance.mediaMessage({

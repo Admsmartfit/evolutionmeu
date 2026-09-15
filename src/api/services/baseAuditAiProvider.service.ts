@@ -32,17 +32,34 @@ export type AuditAiResult = {
   };
 };
 
+export type AuditAiDirective = {
+  issued_by: string;
+  issued_to: string;
+  directive: string;
+  context_quote: string;
+};
+
+export type AuditAiDirectivesResult = {
+  directives: AuditAiDirective[];
+};
+
 export abstract class BaseAuditAiProviderService {
   protected abstract getProviderName(): string;
   protected abstract callModel(request: AuditAiChatRequest): Promise<string>;
 
   public async generateAuditAnalysis(request: AuditAiChatRequest): Promise<AuditAiResult> {
-    const rawText = await this.callModel(request);
-
-    return this.parseAndValidate(rawText);
+    return this.generateJson(request, (parsed) => this.validateComplianceShape(parsed));
   }
 
-  private parseAndValidate(rawText: string): AuditAiResult {
+  public async generateDirectivesAnalysis(request: AuditAiChatRequest): Promise<AuditAiDirectivesResult> {
+    return this.generateJson(request, (parsed) => this.validateDirectivesShape(parsed));
+  }
+
+  private async generateJson<T>(
+    request: AuditAiChatRequest,
+    validate: (parsed: unknown) => asserts parsed is T,
+  ): Promise<T> {
+    const rawText = await this.callModel(request);
     const jsonText = this.extractJson(rawText);
 
     let parsed: unknown;
@@ -52,9 +69,9 @@ export abstract class BaseAuditAiProviderService {
       throw new Error(`${this.getProviderName()} returned invalid JSON: ${(error as Error).message}`);
     }
 
-    this.validateShape(parsed);
+    validate(parsed);
 
-    return parsed as AuditAiResult;
+    return parsed;
   }
 
   /**
@@ -67,7 +84,7 @@ export abstract class BaseAuditAiProviderService {
     return (fenced ? fenced[1] : rawText).trim();
   }
 
-  private validateShape(parsed: unknown): asserts parsed is AuditAiResult {
+  private validateComplianceShape(parsed: unknown): asserts parsed is AuditAiResult {
     if (!parsed || typeof parsed !== 'object') {
       throw new Error(`${this.getProviderName()} response is not a JSON object`);
     }
@@ -84,6 +101,18 @@ export abstract class BaseAuditAiProviderService {
 
     if (!Array.isArray(result.audit_findings.occurrences)) {
       throw new Error(`${this.getProviderName()} response "audit_findings.occurrences" must be an array`);
+    }
+  }
+
+  private validateDirectivesShape(parsed: unknown): asserts parsed is AuditAiDirectivesResult {
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error(`${this.getProviderName()} response is not a JSON object`);
+    }
+
+    const result = parsed as Partial<AuditAiDirectivesResult>;
+
+    if (!Array.isArray(result.directives)) {
+      throw new Error(`${this.getProviderName()} response "directives" must be an array`);
     }
   }
 }
