@@ -732,6 +732,47 @@
         document.getElementById('report-modal-body').innerHTML =
           report.reportType === 'DIRECTIVES' ? this.renderDirectivesDetail(report) : this.renderComplianceDetail(report);
         document.getElementById('report-modal').classList.remove('hidden');
+
+        document
+          .getElementById('report-modal-body')
+          .querySelectorAll('[data-context-index]')
+          .forEach((btn) =>
+            btn.addEventListener('click', () => this.showContext(btn.dataset.contextReport, btn.dataset.contextIndex)),
+          );
+      } catch (err) {
+        handleError(err);
+      }
+    },
+
+    async showContext(reportId, index) {
+      try {
+        const context = await apiFetch(`/audit/reports/${reportId}/occurrences/${index}/context`);
+
+        let lastDay = null;
+        const messagesHtml = context.messages.length
+          ? context.messages
+              .map((m) => {
+                const day = new Date(m.timestamp).toLocaleDateString('pt-BR');
+                const dayDivider = day !== lastDay ? `<div class="chat-day-divider">${day}</div>` : '';
+                lastDay = day;
+                const time = new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                return `${dayDivider}
+              <div class="chat-bubble ${m.fromMe ? 'from-me' : 'from-counterpart'}">
+                <div class="chat-speaker">${escapeHtml(m.speaker)}</div>
+                <div>${escapeHtml(m.content)}</div>
+                <div class="chat-time">${time}</div>
+              </div>`;
+              })
+              .join('')
+          : '<p class="hint">Nenhuma mensagem encontrada nessa janela.</p>';
+
+        document.getElementById('context-modal-body').innerHTML = `
+          <h2>Contexto da conversa</h2>
+          <p class="hint">${escapeHtml(context.instanceName)} — ${escapeHtml(context.ownerLabel)} ↔ ${escapeHtml(context.counterpartLabel)}</p>
+          <p class="hint">Janela: ${formatDate(context.windowStart)} até ${formatDate(context.windowEnd)} (1 dia antes/depois da conversa que gerou a ocorrência)</p>
+          <div class="chat-window">${messagesHtml}</div>
+        `;
+        document.getElementById('context-modal').classList.remove('hidden');
       } catch (err) {
         handleError(err);
       }
@@ -745,7 +786,7 @@
       const occurrencesHtml = occurrences.length
         ? occurrences
             .map(
-              (o) => `
+              (o, index) => `
           <div class="occurrence-card sev-${(o.severity || '').toLowerCase()}">
             <p><strong>${escapeHtml(o.category)}</strong> — ${this.riskBadge(o.severity)}</p>
             <p><strong>Interlocutores:</strong> ${escapeHtml(o.interlocutors)}</p>
@@ -755,6 +796,11 @@
                 ? ''
                 : `<p><strong>Parecer jurídico:</strong> ${escapeHtml(o.legal_fundamentation)}</p>
             <p><strong>Recomendação:</strong> ${escapeHtml(o.recommendation)}</p>`
+            }
+            ${
+              o.contextRef
+                ? `<button type="button" class="btn btn-secondary btn-sm" data-context-report="${report.id}" data-context-index="${index}">Ver contexto da conversa</button>`
+                : ''
             }
           </div>`,
             )
@@ -872,6 +918,7 @@
     document.getElementById('report-refresh-btn').addEventListener('click', () => Reports.load());
     document.getElementById('report-clear-failed-btn').addEventListener('click', () => Reports.clearFailed());
     document.getElementById('report-modal-close').addEventListener('click', () => document.getElementById('report-modal').classList.add('hidden'));
+    document.getElementById('context-modal-close').addEventListener('click', () => document.getElementById('context-modal').classList.add('hidden'));
     document.getElementById('report-modal').addEventListener('click', (e) => {
       if (e.target.id === 'report-modal') document.getElementById('report-modal').classList.add('hidden');
     });

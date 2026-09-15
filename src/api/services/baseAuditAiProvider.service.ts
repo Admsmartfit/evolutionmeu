@@ -15,6 +15,17 @@ export type AuditAiExecutiveSummary = {
   management_alignment_score: string;
 };
 
+// Attached by AuditExecutionService after the AI response comes back (never produced by the
+// AI itself) so the "ver contexto da conversa" screen knows which real conversation and time
+// window an occurrence came from.
+export type AuditOccurrenceContextRef = {
+  instanceId: string;
+  instanceName: string;
+  counterpartNumber: string;
+  conversationStart: string;
+  conversationEnd: string;
+};
+
 export type AuditAiOccurrence = {
   interlocutors: string;
   category: string;
@@ -22,6 +33,7 @@ export type AuditAiOccurrence = {
   evidence_quote: string;
   legal_fundamentation: string;
   recommendation: string;
+  contextRef?: AuditOccurrenceContextRef;
 };
 
 export type AuditAiResult = {

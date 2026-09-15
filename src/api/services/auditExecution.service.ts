@@ -136,7 +136,21 @@ export class AuditExecutionService {
           maxTokens: config.maxTokens ?? undefined,
         });
 
-        results.push(result);
+        const contextRef = {
+          instanceId: chunk.instanceId,
+          instanceName: chunk.instanceName,
+          counterpartNumber: chunk.counterpartNumber,
+          conversationStart: chunk.conversationStart.toISOString(),
+          conversationEnd: chunk.conversationEnd.toISOString(),
+        };
+
+        results.push({
+          ...result,
+          audit_findings: {
+            ...result.audit_findings,
+            occurrences: result.audit_findings.occurrences.map((occurrence) => ({ ...occurrence, contextRef })),
+          },
+        });
       }
     }
 

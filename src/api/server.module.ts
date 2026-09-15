@@ -47,6 +47,7 @@ import { PrismaRepository } from './repository/repository.service';
 import { AuditConfigService } from './services/auditConfig.service';
 import { AuditExecutionService } from './services/auditExecution.service';
 import { AuditMessageCollectorService } from './services/auditMessageCollector.service';
+import { AuditOccurrenceContextService } from './services/auditOccurrenceContext.service';
 import { startAuditExecutionWorker } from './services/auditQueue.service';
 import { AuditRecipientService } from './services/auditRecipient.service';
 import { AuditReportService } from './services/auditReport.service';
@@ -88,7 +89,8 @@ const auditRecipientService = new AuditRecipientService(prismaRepository);
 export const auditRecipientController = new AuditRecipientController(auditRecipientService);
 
 const auditReportService = new AuditReportService(prismaRepository);
-export const auditReportController = new AuditReportController(auditReportService);
+const auditOccurrenceContextService = new AuditOccurrenceContextService(prismaRepository);
+export const auditReportController = new AuditReportController(auditReportService, auditOccurrenceContextService);
 
 export const waMonitor = new WAMonitoringService(
   eventEmitter,

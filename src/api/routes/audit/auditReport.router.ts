@@ -26,6 +26,19 @@ export class AuditReportRouter extends RouterBroker {
         res.setHeader('Content-Disposition', `inline; filename="auditoria-${req.params.reportId}.pdf"`);
         res.status(HttpStatus.OK).send(pdfBuffer);
       })
+      .get('/:reportId/occurrences/:occurrenceIndex/context', ...guards, async (req, res) => {
+        const response = await this.dataValidate<EmptyDto>({
+          request: req,
+          schema: null,
+          ClassRef: EmptyDto,
+          execute: (params) =>
+            auditReportController.getOccurrenceContext(
+              params as unknown as { reportId: string; occurrenceIndex: string },
+            ),
+        });
+
+        res.status(HttpStatus.OK).json(response);
+      })
       .get('/:reportId', ...guards, async (req, res) => {
         const response = await this.dataValidate<EmptyDto>({
           request: req,

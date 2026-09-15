@@ -276,4 +276,40 @@ form label.checkbox-label input { width: auto; margin: 0; }
 .occurrence-card.sev-low { border-left-color: var(--success); }
 .occurrence-card p { margin: 4px 0; }
 
+.modal.modal-wide { max-width: 900px; }
+
+.chat-window {
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 4px;
+  background: var(--panel-alt);
+  border-radius: var(--radius);
+  margin: 14px 0;
+}
+.chat-bubble {
+  max-width: 75%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+.chat-bubble .chat-speaker { font-size: 11px; font-weight: 600; opacity: 0.8; margin-bottom: 2px; }
+.chat-bubble .chat-time { font-size: 10px; opacity: 0.6; margin-top: 4px; text-align: right; }
+.chat-bubble.from-me { align-self: flex-end; background: var(--primary); color: #fff; }
+.chat-bubble.from-counterpart { align-self: flex-start; background: var(--panel); border: 1px solid var(--border); }
+.chat-day-divider {
+  align-self: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2px 10px;
+  margin: 6px 0;
+}
+
 .hidden { display: none !important; }
