@@ -50,6 +50,16 @@ export type AuditConversationChunk = {
   text: string;
 };
 
+export type AuditCollectResult = {
+  chunks: AuditConversationChunk[];
+  // Placeholder (e.g. "[OUTRO_B]") -> real phone number, for every participant who has no
+  // ContactRoleMapping entry. A corporate role (SOCIO/GERENTE/ADMINISTRATIVO) is meaningful
+  // to anonymize per RF07.2; an unmapped counterpart isn't identified by anything else, so
+  // the placeholder alone makes their occurrences untraceable in the final report — the
+  // caller reveals the number in place of the placeholder once the AI analysis is done.
+  unidentifiedLabels: Record<string, string>;
+};
+
 export class AuditMessageCollectorService {
   constructor(private readonly prismaRepository: PrismaRepository) {}
 
@@ -58,9 +68,18 @@ export class AuditMessageCollectorService {
     periodStart: Date;
     periodEnd: Date;
     excludedJids?: string[];
-  }): Promise<AuditConversationChunk[]> {
+  }): Promise<AuditCollectResult> {
     const chunks: AuditConversationChunk[] = [];
     const excludedNumbers = new Set((params.excludedJids || []).map((jid) => jid.split('@')[0]));
+    // One anonymizer for the whole execution (not per counterpart) so distinct unidentified
+    // numbers get distinct letters (_A, _B, _C...) instead of every conversation restarting
+    // at "_A" and making different people indistinguishable in the report.
+    const anonymizer = new AuditParticipantAnonymizer();
+    const unidentifiedLabels: Record<string, string> = {};
+
+    const trackIfUnidentified = (label: string, role: string, phoneNumber: string) => {
+      if (role === DEFAULT_ROLE) unidentifiedLabels[label] = phoneNumber;
+    };
 
     for (const instance of params.instances) {
       const ownerPhoneNumber = this.resolveOwnerPhoneNumber(instance);
@@ -97,9 +116,10 @@ export class AuditMessageCollectorService {
       for (const [counterpartNumber, counterpartMessages] of byCounterpart) {
         const counterpartRole = await this.resolveRole(counterpartNumber);
 
-        const anonymizer = new AuditParticipantAnonymizer();
         const ownerLabel = anonymizer.getPlaceholder(ownerPhoneNumber || `instance-${instance.id}`, ownerRole);
         const counterpartLabel = anonymizer.getPlaceholder(counterpartNumber, counterpartRole);
+        if (ownerPhoneNumber) trackIfUnidentified(ownerLabel, ownerRole, ownerPhoneNumber);
+        trackIfUnidentified(counterpartLabel, counterpartRole, counterpartNumber);
 
         const header = `Conversa entre ${ownerLabel} e ${counterpartLabel} (instância: ${instance.name})`;
         const lines: string[] = [];
@@ -122,7 +142,7 @@ export class AuditMessageCollectorService {
       }
     }
 
-    return chunks;
+    return { chunks, unidentifiedLabels };
   }
 
   private resolveOwnerPhoneNumber(instance: AuditInstanceRef): string | undefined {

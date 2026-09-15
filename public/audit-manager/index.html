@@ -168,6 +168,12 @@
           <label>JIDs/números excluídos <input id="config-excluded" placeholder="5511999999999,..." />
             <span class="hint">Números ou grupos que NUNCA entram na auditoria, mesmo estando numa instância selecionada — útil pra excluir bots, grupos de notificação ou contatos que não devem ser monitorados. Separe por vírgula.</span>
           </label>
+          <label>Instância de envio (WhatsApp) <input id="config-sender-instance" required placeholder="ex.: ricardo cel" />
+            <span class="hint">Nome exato de UMA instância conectada. O relatório desta regra só sai por essa instância — nunca é escolhida automaticamente entre as instâncias auditadas.</span>
+          </label>
+          <label>Destinatário exclusivo (WhatsApp) <input id="config-recipient-phone" required placeholder="5511999999999" />
+            <span class="hint">Único número que recebe o relatório desta regra (com DDI+DDD). Se ficar vazio, o relatório é gerado mas o envio por WhatsApp é pulado — nunca enviado a um número não configurado aqui.</span>
+          </label>
           <label>Provedor de IA
             <select id="config-provider" required>
               <option value="GEMINI">Google Gemini</option>
@@ -202,7 +208,7 @@
         <h2>Configurações cadastradas</h2>
         <table class="data-table">
           <thead>
-            <tr><th>Nome</th><th>Periodicidade</th><th>Cron</th><th>Provedor</th><th>Chave</th><th>Status</th><th></th></tr>
+            <tr><th>Nome</th><th>Periodicidade</th><th>Cron</th><th>Provedor</th><th>Chave</th><th>Envio WhatsApp</th><th>Status</th><th></th></tr>
           </thead>
           <tbody id="configs-tbody"></tbody>
         </table>
@@ -213,6 +219,9 @@
   <!-- ===================== DESTINATÁRIOS ===================== -->
   <section id="tab-recipients" class="tab-panel">
     <div class="panel-grid">
+      <div class="card">
+        <p class="hint">⚠️ Esta lista <strong>não é usada mais</strong> para decidir quem recebe o relatório. Cada regra em "Configurações" agora define seu próprio destinatário exclusivo e instância de envio. Esta tela fica só para consulta/histórico.</p>
+      </div>
       <div class="card">
         <h2 id="recipients-form-title">Novo destinatário</h2>
         <form id="recipient-form">

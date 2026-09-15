@@ -102,3 +102,38 @@ export function aggregateAuditResults(results: AuditAiResult[]): AggregatedAudit
     risk_matrix: riskMatrix,
   };
 }
+
+/**
+ * Swaps every anonymized placeholder that has no corporate role (e.g. "[OUTRO_B]") for the
+ * real phone number behind it, across every text field the AI could have echoed it into.
+ * Placeholders with a known role (SOCIO/GERENTE/ADMINISTRATIVO) are left alone — RF07.2
+ * anonymization still applies to identified staff. `unidentifiedLabels` comes from
+ * AuditMessageCollectorService.collect(); this only ever narrows what's already anonymized,
+ * it never re-adds PII the AI itself introduced.
+ */
+export function revealUnidentifiedInterlocutors(
+  result: AggregatedAuditResult,
+  unidentifiedLabels: Record<string, string>,
+): AggregatedAuditResult {
+  const entries = Object.entries(unidentifiedLabels);
+  if (entries.length === 0) return result;
+
+  const reveal = (text: string): string =>
+    entries.reduce((acc, [label, phoneNumber]) => acc.split(label).join(`+${phoneNumber}`), text);
+
+  return {
+    ...result,
+    executive_summary: {
+      ...result.executive_summary,
+      key_decisions: result.executive_summary.key_decisions.map(reveal),
+      operational_bottlenecks: result.executive_summary.operational_bottlenecks.map(reveal),
+    },
+    occurrences: result.occurrences.map((occurrence) => ({
+      ...occurrence,
+      interlocutors: reveal(occurrence.interlocutors),
+      evidence_quote: reveal(occurrence.evidence_quote),
+      legal_fundamentation: reveal(occurrence.legal_fundamentation),
+      recommendation: reveal(occurrence.recommendation),
+    })),
+  };
+}

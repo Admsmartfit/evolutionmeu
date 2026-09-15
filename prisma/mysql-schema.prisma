@@ -796,6 +796,12 @@ model AuditConfig {
   temperature       Float?
   topP              Float?
   maxTokens         Int?          @db.Int
+  // Notification lock-down: the WhatsApp report is only ever sent through this specific,
+  // pre-registered instance, to this single phone number — never derived from the audited
+  // instances or from a shared/editable recipient list. Delivery is skipped (not guessed)
+  // when either is unset.
+  senderInstanceName   String?    @db.VarChar(255)
+  recipientPhoneNumber String?    @db.VarChar(50)
   createdAt         DateTime?     @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp
   updatedAt         DateTime?     @updatedAt @db.Timestamp
   AuditReport       AuditReport[]

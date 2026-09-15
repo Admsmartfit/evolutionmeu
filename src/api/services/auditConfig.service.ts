@@ -3,6 +3,7 @@ import { PrismaRepository } from '@api/repository/repository.service';
 import { Audit, configService } from '@config/env.config';
 import { BadRequestException, NotFoundException } from '@exceptions';
 import { decrypt, encrypt } from '@utils/crypto';
+import { normalizePhoneNumber } from '@utils/phoneNumber';
 import { AUDIT_AI_PROVIDERS, AUDIT_PERIODICITIES } from '@validate/auditConfig.schema';
 import cron from 'node-cron';
 
@@ -85,13 +86,37 @@ export class AuditConfigService {
     }
   }
 
+  // The sender must be one specific, real, connected-capable instance — never "ALL" and
+  // never left to be inferred at execution time from whichever audited instance comes first.
+  private async validateSenderInstance(senderInstanceName?: string) {
+    if (!senderInstanceName) return;
+
+    if (senderInstanceName === 'ALL') {
+      throw new BadRequestException('senderInstanceName must be a single specific instance name, not "ALL"');
+    }
+
+    const instance = await this.prismaRepository.instance.findUnique({ where: { name: senderInstanceName } });
+
+    if (!instance) {
+      throw new BadRequestException(`Unknown senderInstanceName: "${senderInstanceName}"`);
+    }
+  }
+
+  private normalizeRecipientPhoneNumber(recipientPhoneNumber?: string): string | undefined {
+    if (!recipientPhoneNumber) return undefined;
+
+    return normalizePhoneNumber(recipientPhoneNumber);
+  }
+
   public async create(data: AuditConfigDto) {
     this.validatePeriodicity(data);
     this.validateCronExpression(data.cronExpression);
     this.validateAiProvider(data.aiProvider);
     await this.validateSelectedInstances(data.selectedInstances);
+    await this.validateSenderInstance(data.senderInstanceName);
 
     const apiKeyEncrypted = data.apiKey ? encrypt(data.apiKey, this.getEncryptionKey()) : undefined;
+    const recipientPhoneNumber = this.normalizeRecipientPhoneNumber(data.recipientPhoneNumber);
 
     const config = await this.prismaRepository.auditConfig.create({
       data: {
@@ -110,6 +135,8 @@ export class AuditConfigService {
         temperature: data.temperature,
         topP: data.topP,
         maxTokens: data.maxTokens,
+        senderInstanceName: data.senderInstanceName,
+        recipientPhoneNumber,
       },
     });
 
@@ -129,8 +156,10 @@ export class AuditConfigService {
     this.validateCronExpression(data.cronExpression);
     this.validateAiProvider(data.aiProvider);
     await this.validateSelectedInstances(data.selectedInstances);
+    await this.validateSenderInstance(data.senderInstanceName);
 
     const apiKeyEncrypted = data.apiKey ? encrypt(data.apiKey, this.getEncryptionKey()) : undefined;
+    const recipientPhoneNumber = this.normalizeRecipientPhoneNumber(data.recipientPhoneNumber);
 
     const config = await this.prismaRepository.auditConfig.update({
       where: { id: auditConfigId },
@@ -150,6 +179,8 @@ export class AuditConfigService {
         temperature: data.temperature,
         topP: data.topP,
         maxTokens: data.maxTokens,
+        senderInstanceName: data.senderInstanceName,
+        ...(recipientPhoneNumber ? { recipientPhoneNumber } : {}),
       },
     });
 

@@ -42,6 +42,10 @@ const commonProperties: JSONSchema7['properties'] = {
   temperature: { type: 'number', minimum: 0, maximum: 2 },
   topP: { type: 'number', minimum: 0, maximum: 1 },
   maxTokens: { type: 'integer', minimum: 1 },
+  // The single WhatsApp instance and phone number the report is allowed to go through/to.
+  // Both are required for delivery to happen at all — see AuditReportDeliveryService.
+  senderInstanceName: { type: 'string' },
+  recipientPhoneNumber: { type: 'string', description: 'Phone number in international format, e.g. "5511999999999"' },
 };
 
 export const auditConfigSchema: JSONSchema7 = {

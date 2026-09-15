@@ -14,6 +14,8 @@ export class AuditConfigDto {
   temperature?: number;
   topP?: number;
   maxTokens?: number;
+  senderInstanceName?: string;
+  recipientPhoneNumber?: string;
 }
 
 export class AuditConfigUpdateDto {
@@ -32,6 +34,8 @@ export class AuditConfigUpdateDto {
   temperature?: number;
   topP?: number;
   maxTokens?: number;
+  senderInstanceName?: string;
+  recipientPhoneNumber?: string;
 }
 
 export class AuditConfigFindDto {

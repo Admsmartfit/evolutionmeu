@@ -360,7 +360,7 @@
     render(list) {
       const tbody = document.getElementById('configs-tbody');
       if (!list || list.length === 0) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Nenhuma configuração cadastrada.</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Nenhuma configuração cadastrada.</td></tr>';
         return;
       }
       tbody.innerHTML = list
@@ -372,6 +372,11 @@
           <td><code>${escapeHtml(c.cronExpression || '—')}</code></td>
           <td>${escapeHtml(c.aiProvider)} / ${escapeHtml(c.aiModel)}</td>
           <td>${c.apiKeyConfigured ? '<span class="badge badge-completed">configurada</span>' : '<span class="badge badge-neutral">ausente</span>'}</td>
+          <td>${
+            c.senderInstanceName && c.recipientPhoneNumber
+              ? `<span class="badge badge-completed">${escapeHtml(c.senderInstanceName)} → ${escapeHtml(c.recipientPhoneNumber)}</span>`
+              : '<span class="badge badge-neutral" title="Sem destinatário/instância configurados — envio por WhatsApp será pulado">não configurado</span>'
+          }</td>
           <td>${c.enabled ? '<span class="badge badge-completed">ativo</span>' : '<span class="badge badge-neutral">inativo</span>'}</td>
           <td>
             <button class="btn btn-secondary btn-sm" data-edit="${c.id}">Editar</button>
@@ -404,6 +409,8 @@
       document.getElementById('config-lookback').value = config.lookbackDays ?? '';
       document.getElementById('config-instances').value = (config.selectedInstances || []).join(',');
       document.getElementById('config-excluded').value = (config.excludedJids || []).join(',');
+      document.getElementById('config-sender-instance').value = config.senderInstanceName || '';
+      document.getElementById('config-recipient-phone').value = config.recipientPhoneNumber || '';
       document.getElementById('config-provider').value = config.aiProvider;
       document.getElementById('config-model').value = config.aiModel;
       document.getElementById('config-apikey').value = '';
@@ -448,6 +455,8 @@
         lookbackDays: numberOrUndefined('config-lookback'),
         selectedInstances: splitList(document.getElementById('config-instances').value),
         excludedJids: splitList(document.getElementById('config-excluded').value),
+        senderInstanceName: document.getElementById('config-sender-instance').value.trim() || undefined,
+        recipientPhoneNumber: document.getElementById('config-recipient-phone').value.trim() || undefined,
         aiProvider: document.getElementById('config-provider').value,
         aiModel: document.getElementById('config-model').value.trim(),
         temperature: numberOrUndefined('config-temperature'),

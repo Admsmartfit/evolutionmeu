@@ -8,7 +8,7 @@ import { AuditAiProviderFactory } from './auditAiProviderFactory.service';
 import { AuditConfigService } from './auditConfig.service';
 import { AuditInstanceRef, AuditMessageCollectorService } from './auditMessageCollector.service';
 import { AUDIT_SYSTEM_PROMPT, buildAuditUserPrompt } from './auditPrompt';
-import { aggregateAuditResults } from './auditReportAggregator';
+import { aggregateAuditResults, revealUnidentifiedInterlocutors } from './auditReportAggregator';
 import { AuditReportDeliveryService } from './auditReportDelivery.service';
 import { AuditReportPdfService } from './auditReportPdf.service';
 import { AuditReportStorageService } from './auditReportStorage.service';
@@ -32,10 +32,7 @@ export class AuditExecutionService {
     ) => BaseAuditAiProviderService = AuditAiProviderFactory.create,
     private readonly pdfService: AuditReportPdfService = new AuditReportPdfService(),
     private readonly storageService: AuditReportStorageService = new AuditReportStorageService(),
-    private readonly deliveryService: AuditReportDeliveryService = new AuditReportDeliveryService(
-      prismaRepository,
-      waMonitor,
-    ),
+    private readonly deliveryService: AuditReportDeliveryService = new AuditReportDeliveryService(waMonitor),
   ) {}
 
   private readonly logger = new Logger('AuditExecutionService');
@@ -61,19 +58,21 @@ export class AuditExecutionService {
 
     try {
       const results: AuditAiResult[] = [];
+      let unidentifiedLabels: Record<string, string> = {};
 
       if (instances.length > 0) {
         const apiKey = await this.resolveApiKey(config);
         const provider = this.createAiProvider(config.aiProvider);
 
-        const chunks = await this.messageCollector.collect({
+        const collected = await this.messageCollector.collect({
           instances,
           periodStart: params.periodStart,
           periodEnd: params.periodEnd,
           excludedJids: (config.excludedJids as string[] | null) || undefined,
         });
+        unidentifiedLabels = collected.unidentifiedLabels;
 
-        for (const chunk of chunks) {
+        for (const chunk of collected.chunks) {
           const result = await provider.generateAuditAnalysis({
             systemPrompt: AUDIT_SYSTEM_PROMPT,
             userContent: buildAuditUserPrompt({
@@ -93,6 +92,9 @@ export class AuditExecutionService {
       }
 
       const aggregated = aggregateAuditResults(results);
+      // AI input stays anonymized (RF07.1/RF07.2, PII never leaves to the AI provider);
+      // this only reveals unidentified numbers in the report that comes back out.
+      const revealed = revealUnidentifiedInterlocutors(aggregated, unidentifiedLabels);
 
       const pdfBuffer = await this.pdfService.generate({
         id: report.id,
@@ -100,33 +102,34 @@ export class AuditExecutionService {
         periodStart: params.periodStart,
         periodEnd: params.periodEnd,
         instancesAudited: instances.map((instance) => instance.name),
-        overallRiskLevel: aggregated.overall_risk_level,
-        riskMatrix: aggregated.risk_matrix,
-        executiveSummary: aggregated.executive_summary,
-        occurrencesDetails: aggregated.occurrences,
+        overallRiskLevel: revealed.overall_risk_level,
+        riskMatrix: revealed.risk_matrix,
+        executiveSummary: revealed.executive_summary,
+        occurrencesDetails: revealed.occurrences,
       });
       const pdfStorageUrl = await this.storageService.uploadReportPdf(report.id, pdfBuffer);
 
       await this.deliverReport({
         reportId: report.id,
-        senderInstanceName: instances[0]?.name ?? null,
+        senderInstanceName: config.senderInstanceName,
+        recipientPhoneNumber: config.recipientPhoneNumber,
         periodStart: params.periodStart,
         periodEnd: params.periodEnd,
         instancesAudited: instances.map((instance) => instance.name),
-        overallRiskLevel: aggregated.overall_risk_level,
-        riskMatrix: aggregated.risk_matrix,
-        executiveSummary: aggregated.executive_summary,
-        occurrencesDetails: aggregated.occurrences,
+        overallRiskLevel: revealed.overall_risk_level,
+        riskMatrix: revealed.risk_matrix,
+        executiveSummary: revealed.executive_summary,
+        occurrencesDetails: revealed.occurrences,
         pdfBuffer,
       });
 
       await this.prismaRepository.auditReport.update({
         where: { id: report.id },
         data: {
-          executiveSummary: aggregated.executive_summary,
-          occurrencesDetails: aggregated.occurrences,
-          overallRiskLevel: aggregated.overall_risk_level,
-          riskMatrix: aggregated.risk_matrix,
+          executiveSummary: revealed.executive_summary,
+          occurrencesDetails: revealed.occurrences,
+          overallRiskLevel: revealed.overall_risk_level,
+          riskMatrix: revealed.risk_matrix,
           pdfStorageUrl,
           status: 'COMPLETED',
         },
@@ -156,7 +159,9 @@ export class AuditExecutionService {
     try {
       const result = await this.deliveryService.deliver(params);
       this.logger.info(
-        `Audit report ${params.reportId} delivery: sent=${result.sent.length} skipped=${result.skipped.length} failed=${result.failed.length}`,
+        `Audit report ${params.reportId} delivery: sent=${result.sent}` +
+          (result.skippedReason ? ` skippedReason="${result.skippedReason}"` : '') +
+          (result.failedReason ? ` failedReason="${result.failedReason}"` : ''),
       );
     } catch (error) {
       this.logger.error(`Audit report ${params.reportId}: WhatsApp delivery step failed: ${getErrorMessage(error)}`);
